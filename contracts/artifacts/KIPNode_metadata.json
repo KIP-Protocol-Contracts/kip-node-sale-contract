@@ -14,7 +14,12 @@
 					},
 					{
 						"internalType": "address",
-						"name": "pay_token",
+						"name": "usdt_token",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "usdc_token",
 						"type": "address"
 					}
 				],
@@ -239,6 +244,12 @@
 				"inputs": [
 					{
 						"indexed": false,
+						"internalType": "address",
+						"name": "operator",
+						"type": "address"
+					},
+					{
+						"indexed": false,
 						"internalType": "bool",
 						"name": "whitelist",
 						"type": "bool"
@@ -248,6 +259,12 @@
 						"internalType": "uint8",
 						"name": "tier",
 						"type": "uint8"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "price",
+						"type": "uint256"
 					},
 					{
 						"indexed": false,
@@ -264,7 +281,7 @@
 					{
 						"indexed": false,
 						"internalType": "string",
-						"name": "_code",
+						"name": "code",
 						"type": "string"
 					}
 				],
@@ -330,6 +347,32 @@
 						"internalType": "bool",
 						"name": "",
 						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "USDC_TokenAddress",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "USDT_TokenAddress",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
 					}
 				],
 				"stateMutability": "view",
@@ -463,19 +506,6 @@
 				"type": "function"
 			},
 			{
-				"inputs": [],
-				"name": "name",
-				"outputs": [
-					{
-						"internalType": "string",
-						"name": "",
-						"type": "string"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
 				"inputs": [
 					{
 						"internalType": "address",
@@ -483,12 +513,25 @@
 						"type": "address"
 					}
 				],
-				"name": "operator",
+				"name": "kip_operator",
 				"outputs": [
 					{
 						"internalType": "bool",
 						"name": "",
 						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "name",
+				"outputs": [
+					{
+						"internalType": "string",
+						"name": "",
+						"type": "string"
 					}
 				],
 				"stateMutability": "view",
@@ -527,19 +570,6 @@
 				"type": "function"
 			},
 			{
-				"inputs": [],
-				"name": "payTokenAddress",
-				"outputs": [
-					{
-						"internalType": "address",
-						"name": "",
-						"type": "address"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
 				"inputs": [
 					{
 						"internalType": "uint8",
@@ -554,6 +584,11 @@
 					{
 						"internalType": "uint8",
 						"name": "_amount",
+						"type": "uint8"
+					},
+					{
+						"internalType": "uint8",
+						"name": "payment_token",
 						"type": "uint8"
 					},
 					{
@@ -754,19 +789,6 @@
 			{
 				"inputs": [
 					{
-						"internalType": "address",
-						"name": "newtoken",
-						"type": "address"
-					}
-				],
-				"name": "setPayToken",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
 						"internalType": "uint8",
 						"name": "tier",
 						"type": "uint8"
@@ -827,6 +849,32 @@
 					}
 				],
 				"name": "setTransferEnabled",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "newtoken",
+						"type": "address"
+					}
+				],
+				"name": "setUsdcToken",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "newtoken",
+						"type": "address"
+					}
+				],
+				"name": "setUsdtToken",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -1387,7 +1435,7 @@
 			"bytecodeHash": "ipfs"
 		},
 		"optimizer": {
-			"enabled": false,
+			"enabled": true,
 			"runs": 200
 		},
 		"remappings": []
@@ -1506,11 +1554,11 @@
 			]
 		},
 		"contracts/KIPNode.sol": {
-			"keccak256": "0x5878e95f7fb849dfaa75f28dd7d15e5237f8e765b1589c2ecf79274c9327519a",
+			"keccak256": "0x31be6a6bb9339a49dc939e0926a5b1c03a1341e3dc839b7ab1d7c7176f9e1f4f",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://451c3403083ae3df5d35616ec5a4e09a892e7ac4bb0f878d139530f1ace1cc98",
-				"dweb:/ipfs/QmPEBTHAkQN4MPQFAZWWBQauY5bx6ayTvX7UHjxqHHzAYW"
+				"bzz-raw://25cc6a204981d3e04a014c34da8e1d975a7579483dbd92ec64cfc75d47b7914e",
+				"dweb:/ipfs/QmQpBarBYbmVRd28mwkYWWWjUzXAfPo5yDrw3Tm6UXU6E8"
 			]
 		}
 	},

@@ -10,8 +10,11 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 contract KIPNode is ERC721, Ownable {
     uint256 private _nextTokenId;
 
-    IERC20 private payToken; // payment token
-    address public payTokenAddress; 
+    IERC20 private USDT_Token; // usdt token
+    address public USDT_TokenAddress; 
+
+    IERC20 private USDC_Token; // usdc token
+    address public USDC_TokenAddress; 
 
     address public KIPFundAddress; // KIP Protocol 's Fund Address
 
@@ -40,13 +43,13 @@ contract KIPNode is ERC721, Ownable {
     mapping(uint16 => uint16) public tier_minted_amounts_public;
     mapping(uint16 => uint16) public tier_minted_amounts_whitelist;
 
-    mapping(address => bool) public operator;
+    mapping(address => bool) public kip_operator;
 
     event OperatorChanged(address operator, bool enabled);
-    event TokenMinted(bool whitelist, uint8 tier, address to, uint256 token_id, string _code);
+    event TokenMinted(address operator, bool whitelist, uint8 tier, uint256 price, address to, uint256 token_id, string code);
 
     modifier onlyOperator(){
-        require(operator[_msgSender()], "You are not the operator");
+        require(kip_operator[_msgSender()], "You are not the operator");
         _;
     }
 
@@ -58,12 +61,15 @@ contract KIPNode is ERC721, Ownable {
         baseTokenURI = newuri;
     }
 
-    constructor(address initialOwner, address pay_token)
+    constructor(address initialOwner, address usdt_token, address usdc_token)
         ERC721("TEST kip checker node", "KIPNODE")
         Ownable(initialOwner)
     {
-        payToken = IERC20(pay_token);
-        payTokenAddress = pay_token;
+        USDT_Token = IERC20(usdt_token);
+        USDT_TokenAddress = usdt_token;
+
+        USDC_Token = IERC20(usdc_token);
+        USDC_TokenAddress = usdc_token;
 
         KIPFundAddress = 0x6E3bbb13330102989Ac110163e4C649d0bB88777;
         TransferEnabled = false;
@@ -82,7 +88,7 @@ contract KIPNode is ERC721, Ownable {
         return previousOwner;
     }
 
-    function public_mint(uint8 tier, address to, uint8 _amount, string calldata _code) public {
+    function public_mint(uint8 tier, address to, uint8 _amount, uint8 payment_token, string calldata _code) public {
         require(tier>0, "tier Can't BE ZERO");
         require(tier<=MaxTierAmount, "tier TOO LARGE");
         require(user_minted_amounts_public[tier][_msgSender()] + _amount <= tier_user_cap_public[tier], "Can't mint more than allowed");
@@ -92,15 +98,24 @@ contract KIPNode is ERC721, Ownable {
 
         if(tier_price_per_token[tier]>0){
             uint256 _price = tier_price_per_token[tier]*_amount;
-            require(payToken.allowance(_msgSender(), address(this)) >= _price, "Allowance is less than transfer amount");
-            bool success = payToken.transferFrom(_msgSender(), address(this), _price);
-            require(success, "Failed to transfer funds");
+            bool fsuccess = false;
+            if(payment_token==1)
+            {
+                require(USDT_Token.allowance(_msgSender(), address(this)) >= _price, "Allowance is less than transfer amount");
+                fsuccess = USDT_Token.transferFrom(_msgSender(), address(this), _price);
+
+            }else
+            {
+                require(USDC_Token.allowance(_msgSender(), address(this)) >= _price, "Allowance is less than transfer amount");
+                fsuccess = USDC_Token.transferFrom(_msgSender(), address(this), _price);
+            }
+            require(fsuccess, "Failed to transfer funds");
         }
 
         for (uint256 i = 1; i <= _amount; i++) {
             _nextTokenId++;
             _safeMint(to, _nextTokenId);
-            emit TokenMinted(false, tier, to, _nextTokenId, _code);
+            emit TokenMinted(_msgSender(), false, tier, tier_price_per_token[tier], to, _nextTokenId, _code);
         }
         tier_minted_amounts_public[tier] += _amount;
         user_minted_amounts_public[tier][_msgSender()] += _amount;
@@ -121,7 +136,7 @@ contract KIPNode is ERC721, Ownable {
         for (uint256 i = 1; i <= _amount; i++) {
             _nextTokenId++;
             _safeMint(to, _nextTokenId);
-            emit TokenMinted(true, tier, to, _nextTokenId, "");
+            emit TokenMinted(_msgSender(), true, tier, 0, to, _nextTokenId, "");
         }
 
         tier_minted_amounts_whitelist[tier] += _amount;
@@ -167,13 +182,18 @@ contract KIPNode is ERC721, Ownable {
         KIPFundAddress = new_address;
     }
 
-    function setPayToken(address newtoken) public onlyOwner {
-        payTokenAddress = newtoken;
-        payToken = IERC20(newtoken);
+    function setUsdtToken(address newtoken) public onlyOwner {
+        USDT_TokenAddress = newtoken;
+        USDT_Token = IERC20(newtoken);
+    }
+
+    function setUsdcToken(address newtoken) public onlyOwner {
+        USDC_TokenAddress = newtoken;
+        USDC_Token = IERC20(newtoken);
     }
 
     function setOperator(address _address, bool enabled) public onlyOwner {
-        operator[_address] = enabled;
+        kip_operator[_address] = enabled;
         emit OperatorChanged(_address, enabled);
     }
 
