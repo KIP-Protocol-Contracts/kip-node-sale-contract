@@ -6,50 +6,51 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract KIPNode is ERC721, Ownable {
+contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     uint256 private _nextTokenId;
 
-    IERC20 private USDT_Token; // usdt token
-    address public USDT_TokenAddress; 
+    IERC20 public USDT_Token; // usdt token
+    IERC20 public USDC_Token; // usdc token
 
-    IERC20 private USDC_Token; // usdc token
-    address public USDC_TokenAddress; 
+    address public KIPFundAddress = 0x6E3bbb13330102989Ac110163e4C649d0bB88777; // KIP Protocol 's Fund Address
 
-    address public KIPFundAddress; // KIP Protocol 's Fund Address
-
-    bool public TransferEnabled;
-    uint16 public MaxTierAmount;
+    bool public TransferEnabled = false;
+    uint16 public MaxTierAmount = 38;
 
     string public baseTokenURI;
 
-    mapping(uint16 => uint256) public tier_price_per_token;
+    struct PublicSale {
+        uint256 price;
+        uint32 maxPerTier;
+        uint32 maxPerUser;
+        uint64 mintedAmount;
+        uint64 start;
+        uint64 end;
+    }
 
-    mapping(uint16 => uint64) public tier_start_timestamp_public;
-    mapping(uint16 => uint64) public tier_end_timestamp_public;
+    struct WhitelistSale {
+        bytes32 merkleRoot;
+        uint32 maxPerTier;
+        uint64 mintedAmount;
+        uint64 start;
+        uint64 end;
+    }
 
-    mapping(uint16 => uint64) public tier_start_timestamp_whitelist;
-    mapping(uint16 => uint64) public tier_end_timestamp_whitelist;
+    mapping(uint16 => PublicSale) public publicSaleConfigs;
+    mapping(uint16 => WhitelistSale) public whitelistSaleConfigs;
 
-    mapping(uint16 => uint16) public tier_total_cap_public;
-    mapping(uint16 => uint16) public tier_user_cap_public;
+    mapping(uint16 => mapping(address => uint256)) public whitelistUserMinted;
+    mapping(uint16 => mapping(address => uint256)) public publicUserMinted;
 
-    mapping(uint16 => uint16) public tier_total_cap_whitelist;
-    mapping(uint16 => bytes32) public tier_whitelist_merkle_root;
-
-    mapping(uint16 => mapping(address => uint256)) public user_minted_amounts_whitelist;
-    mapping(uint16 => mapping(address => uint256)) public user_minted_amounts_public;
-
-    mapping(uint16 => uint16) public tier_minted_amounts_public;
-    mapping(uint16 => uint16) public tier_minted_amounts_whitelist;
-
-    mapping(address => bool) public kip_operator;
+    mapping(address => bool) public kipOperator;
 
     event OperatorChanged(address operator, bool enabled);
-    event TokenMinted(address operator, bool whitelist, uint8 tier, uint256 price, address to, uint256 token_id, string code);
+    event TokenMinted(address indexed operator, bool whitelist, uint8 tier, uint256 price, address indexed to, uint256 token_id, string code);
 
     modifier onlyOperator(){
-        require(kip_operator[_msgSender()], "You are not the operator");
+        require(kipOperator[_msgSender()], "You are not the operator");
         _;
     }
 
@@ -57,7 +58,7 @@ contract KIPNode is ERC721, Ownable {
         return baseTokenURI;
     }
 
-    function setTokenURI(string memory newuri) public onlyOwner {
+    function setTokenURI(string memory newuri) external onlyOwner {
         baseTokenURI = newuri;
     }
 
@@ -66,14 +67,7 @@ contract KIPNode is ERC721, Ownable {
         Ownable(initialOwner)
     {
         USDT_Token = IERC20(usdt_token);
-        USDT_TokenAddress = usdt_token;
-
         USDC_Token = IERC20(usdc_token);
-        USDC_TokenAddress = usdc_token;
-
-        KIPFundAddress = 0x6E3bbb13330102989Ac110163e4C649d0bB88777;
-        TransferEnabled = false;
-        MaxTierAmount = 38;
 
         baseTokenURI = "https://node-nft.kip.pro/";
     }
@@ -88,50 +82,46 @@ contract KIPNode is ERC721, Ownable {
         return previousOwner;
     }
 
-    function public_mint(uint8 tier, address to, uint8 _amount, uint8 payment_token, string calldata _code) public {
-        require(tier>0, "tier Can't BE ZERO");
-        require(tier<=MaxTierAmount, "tier TOO LARGE");
-        require(user_minted_amounts_public[tier][_msgSender()] + _amount <= tier_user_cap_public[tier], "Can't mint more than allowed");
-        require(tier_minted_amounts_public[tier] + _amount <= tier_total_cap_public[tier], "Cannot mint more than allowed");
-        require(tier_start_timestamp_public[tier] <= block.timestamp, "start_timestamp not allowed");
-        require(block.timestamp <= tier_end_timestamp_public[tier], "end_timestamp not allowed");
+    function public_mint(uint8 tier, address to, uint8 _amount, uint8 payment_token, string calldata _code) external nonReentrant {
+        require(tier<=MaxTierAmount && tier>0 && _amount>0, "11");
+        PublicSale storage saleConfig = publicSaleConfigs[tier];
+        require(saleConfig.maxPerTier>0, "tier price is zero");
+        require(publicUserMinted[tier][_msgSender()] + _amount <= saleConfig.maxPerUser, "Can't mint more than allowed");
+        require(saleConfig.mintedAmount + _amount <= saleConfig.maxPerTier, "Cann't mint more than allowed");
+        require(saleConfig.start <= block.timestamp && block.timestamp <= saleConfig.end, "Timestamp not allowed");
+        require(saleConfig.price>0, "Minting price is zero");
 
-        if(tier_price_per_token[tier]>0){
-            uint256 _price = tier_price_per_token[tier]*_amount;
-            bool fsuccess = false;
-            if(payment_token==1)
-            {
-                require(USDT_Token.allowance(_msgSender(), address(this)) >= _price, "Allowance is less than transfer amount");
-                fsuccess = USDT_Token.transferFrom(_msgSender(), address(this), _price);
+        uint256 _price = saleConfig.price*_amount;
+        bool fsuccess = false;
+        if(payment_token==1)
+        {
+            fsuccess = USDT_Token.transferFrom(_msgSender(), address(this), _price);
 
-            }else
-            {
-                require(USDC_Token.allowance(_msgSender(), address(this)) >= _price, "Allowance is less than transfer amount");
-                fsuccess = USDC_Token.transferFrom(_msgSender(), address(this), _price);
-            }
-            require(fsuccess, "Failed to transfer funds");
+        }else
+        {
+            fsuccess = USDC_Token.transferFrom(_msgSender(), address(this), _price);
         }
+        require(fsuccess, "Failed to transfer funds");
 
         for (uint256 i = 1; i <= _amount; i++) {
             _nextTokenId++;
             _safeMint(to, _nextTokenId);
-            emit TokenMinted(_msgSender(), false, tier, tier_price_per_token[tier], to, _nextTokenId, _code);
+            emit TokenMinted(_msgSender(), false, tier, saleConfig.price, to, _nextTokenId, _code);
         }
-        tier_minted_amounts_public[tier] += _amount;
-        user_minted_amounts_public[tier][_msgSender()] += _amount;
+        publicSaleConfigs[tier].mintedAmount += _amount;
+        publicUserMinted[tier][_msgSender()] += _amount;
     }
 
     function whitelist_mint(uint8 tier, address to, uint8 _amount, 
-                            uint256 _maxAmount, bytes32[] calldata _merkleProof) public {
-        require(tier>0, "tier Can't BE ZERO");
-        require(tier<=MaxTierAmount, "tier TOO LARGE");
-        require(tier_minted_amounts_whitelist[tier] + _amount <= tier_total_cap_whitelist[tier], "Can't mint more than allowed");
-        require(user_minted_amounts_whitelist[tier][_msgSender()] + _amount <= _maxAmount, "Cannot mint more than allowed");
-        require(tier_start_timestamp_whitelist[tier] <= block.timestamp, "start_timestamp not allowed");
-        require(block.timestamp <= tier_end_timestamp_whitelist[tier], "end_timestamp not allowed");
+                            uint256 _maxAmount, bytes32[] calldata _merkleProof) external nonReentrant {
+        require(tier<=MaxTierAmount && tier>0 && _amount>0 && _maxAmount>0, "11");
+        WhitelistSale storage saleConfig = whitelistSaleConfigs[tier];
+        require(saleConfig.mintedAmount + _amount <= saleConfig.maxPerTier, "Can't mint more than allowed");
+        require(whitelistUserMinted[tier][_msgSender()] + _amount <= _maxAmount, "Cann't mint more than allowed");
+        require(saleConfig.start <= block.timestamp && block.timestamp <= saleConfig.end, "Timestamp not allowed");
 
-        bytes32 leaf = keccak256(abi.encodePacked(_msgSender(), _maxAmount));
-        require(MerkleProof.verify(_merkleProof, tier_whitelist_merkle_root[tier], leaf), "Invalid Merkle Proof");
+        bytes32 leaf = keccak256(abi.encode(_msgSender(), _maxAmount));
+        require(MerkleProof.verify(_merkleProof, saleConfig.merkleRoot, leaf), "Invalid Merkle Proof");
 
         for (uint256 i = 1; i <= _amount; i++) {
             _nextTokenId++;
@@ -139,68 +129,55 @@ contract KIPNode is ERC721, Ownable {
             emit TokenMinted(_msgSender(), true, tier, 0, to, _nextTokenId, "");
         }
 
-        tier_minted_amounts_whitelist[tier] += _amount;
-        user_minted_amounts_whitelist[tier][_msgSender()] += _amount;
+        whitelistSaleConfigs[tier].mintedAmount += _amount;
+        whitelistUserMinted[tier][_msgSender()] += _amount;
     }
 
-    function setMerkleRoot(uint8 tier, bytes32 _merkleRoot) public onlyOperator {
-        tier_whitelist_merkle_root[tier] = _merkleRoot;
+    function setPublicSaleConfigs(uint8 tier, uint64 _start, uint64 _end, uint256 _price, uint32 user_cap, uint32 total_cap) external onlyOperator {
+        publicSaleConfigs[tier].start = _start;
+        publicSaleConfigs[tier].end = _end;
+        publicSaleConfigs[tier].price = _price;
+        publicSaleConfigs[tier].maxPerUser = user_cap;
+        publicSaleConfigs[tier].maxPerTier = total_cap;
     }
 
-    function setDurationPublic(uint8 tier, uint64 _start, uint64 _end) public onlyOperator {
-        tier_start_timestamp_public[tier] = _start;
-        tier_end_timestamp_public[tier] = _end;
+    function setWhitelistSaleConfigs(uint8 tier, uint64 _start, uint64 _end, uint32 total_cap, bytes32 _merkleRoot) external onlyOperator {
+        whitelistSaleConfigs[tier].start = _start;
+        whitelistSaleConfigs[tier].end = _end;
+        whitelistSaleConfigs[tier].maxPerTier = total_cap;
+        whitelistSaleConfigs[tier].merkleRoot = _merkleRoot;
     }
 
-    function setDurationWhitelist(uint8 tier, uint64 _start, uint64 _end) public onlyOperator {
-        tier_start_timestamp_whitelist[tier] = _start;
-        tier_end_timestamp_whitelist[tier] = _end;
-    }
-
-    function setTokenPrice(uint8 tier, uint256 _price) public onlyOperator {
-        tier_price_per_token[tier] = _price;
-    }
-
-    function setUserCap(uint8 tier, uint16 _cap_public) public onlyOperator {
-        tier_user_cap_public[tier] = _cap_public;
-    }
-
-    function setTotalCap(uint8 tier, uint16 _cap_public, uint16 _cap_whitelist) public onlyOperator {
-        tier_total_cap_public[tier] = _cap_public;
-        tier_total_cap_whitelist[tier] = _cap_whitelist;
-    }
-
-    function setTransferEnabled(bool _enabled) public onlyOperator {
+    function setTransferEnabled(bool _enabled) external onlyOperator {
         TransferEnabled = _enabled;
     }
 
-    function setMaxTierAmount(uint16 new_address) public onlyOwner {
+    function setMaxTierAmount(uint16 new_address) external onlyOwner {
         MaxTierAmount = new_address;
     }
 
-    function setKIPFundAddress(address new_address) public onlyOwner {
+    function setKIPFundAddress(address new_address) external onlyOwner {
         KIPFundAddress = new_address;
     }
 
-    function setUsdtToken(address newtoken) public onlyOwner {
-        USDT_TokenAddress = newtoken;
+    function setUsdtToken(address newtoken) external onlyOwner {
         USDT_Token = IERC20(newtoken);
     }
 
-    function setUsdcToken(address newtoken) public onlyOwner {
-        USDC_TokenAddress = newtoken;
+    function setUsdcToken(address newtoken) external onlyOwner {
         USDC_Token = IERC20(newtoken);
     }
 
-    function setOperator(address _address, bool enabled) public onlyOwner {
-        kip_operator[_address] = enabled;
+    function setKipOperator(address _address, bool enabled) external onlyOwner {
+        kipOperator[_address] = enabled;
         emit OperatorChanged(_address, enabled);
     }
 
     function check_whitelist_mint(uint8 tier, address to,
-                            uint256 _maxAmount, bytes32[] calldata _merkleProof) public view returns (bool) {
-
-        bytes32 leaf = keccak256(abi.encodePacked(to, _maxAmount));
-        return MerkleProof.verify(_merkleProof, tier_whitelist_merkle_root[tier], leaf);
+                            uint256 _maxAmount, bytes32[] calldata _merkleProof) external view returns (bool) {
+        require(tier<=MaxTierAmount && tier>0 && _maxAmount>0, "11");                            
+        bytes32 leaf = keccak256(abi.encode(to, _maxAmount));
+        WhitelistSale storage saleConfig = whitelistSaleConfigs[tier];
+        return MerkleProof.verify(_merkleProof, saleConfig.merkleRoot, leaf);
     }
 }
