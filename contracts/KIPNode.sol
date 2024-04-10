@@ -108,7 +108,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
             _safeMint(to, _nextTokenId);
             emit TokenMinted(_msgSender(), false, tier, saleConfig.price, to, _nextTokenId, _code);
         }
-        publicSaleConfigs[tier].mintedAmount += _amount;
+        saleConfig.mintedAmount += _amount;
         publicUserMinted[tier][_msgSender()] += _amount;
     }
 
@@ -129,7 +129,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
             emit TokenMinted(_msgSender(), true, tier, 0, to, _nextTokenId, "");
         }
 
-        whitelistSaleConfigs[tier].mintedAmount += _amount;
+        saleConfig.mintedAmount += _amount;
         whitelistUserMinted[tier][_msgSender()] += _amount;
     }
 
