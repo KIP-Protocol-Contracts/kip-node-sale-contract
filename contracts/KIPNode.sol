@@ -120,9 +120,9 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
         require(whitelistUserMinted[tier][_msgSender()] + _amount <= _maxAmount, "Cann't mint more than allowed");
         require(saleConfig.start <= block.timestamp && block.timestamp <= saleConfig.end, "Timestamp not allowed");
 
-        bytes32 leaf = keccak256(abi.encode(_msgSender(), _maxAmount));
-        require(MerkleProof.verify(_merkleProof, saleConfig.merkleRoot, leaf), "Invalid Merkle Proof");
-
+        // bytes32 leaf = keccak256(abi.encode(_msgSender(), _maxAmount));
+        // require(MerkleProof.verify(_merkleProof, saleConfig.merkleRoot, leaf), "Invalid Merkle Proof");
+        require(check_whitelist_mint(tier,to,_maxAmount,_merkleProof), "Invalid Merkle Proof");
         for (uint256 i = 1; i <= _amount; i++) {
             _nextTokenId++;
             _safeMint(to, _nextTokenId);
@@ -174,7 +174,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     }
 
     function check_whitelist_mint(uint8 tier, address to,
-                            uint256 _maxAmount, bytes32[] calldata _merkleProof) external view returns (bool) {
+                            uint256 _maxAmount, bytes32[] calldata _merkleProof) public view returns (bool) {
         require(tier<=MaxTierAmount && tier>0 && _maxAmount>0, "11");                            
         bytes32 leaf = keccak256(abi.encode(to, _maxAmount));
         WhitelistSale storage saleConfig = whitelistSaleConfigs[tier];
