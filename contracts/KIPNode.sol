@@ -1,31 +1,21 @@
-// SPDX-License-Identifier: MIT
-// Compatible with OpenZeppelin Contracts ^5.0.0
+// SPDX-License-Identifier: None
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract KIPNode is ERC721, Ownable, ReentrancyGuard {
-    uint256 private _nextTokenId;
-
-    IERC20 public USDT_Token; // usdt token
-    IERC20 public USDC_Token; // usdc token
-
-    address public KIPFundAddress = 0x6E3bbb13330102989Ac110163e4C649d0bB88777; // KIP Protocol 's Fund Address
-
-    bool public TransferEnabled = false;
-    uint16 public MaxTierAmount = 38;
-
-    string public baseTokenURI;
+    using SafeERC20 for IERC20;
 
     struct PublicSale {
         uint256 price;
         uint32 maxPerTier;
         uint32 maxPerUser;
-        uint64 mintedAmount;
+        uint64 totalMintedAmount;
         uint64 start;
         uint64 end;
     }
@@ -33,151 +23,338 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     struct WhitelistSale {
         bytes32 merkleRoot;
         uint32 maxPerTier;
-        uint64 mintedAmount;
+        uint64 totalMintedAmount;
         uint64 start;
         uint64 end;
     }
 
-    mapping(uint16 => PublicSale) public publicSaleConfigs;
-    mapping(uint16 => WhitelistSale) public whitelistSaleConfigs;
+    //  Store address of ERC-20 token as payment acceptance
+    IERC20 public paymentToken;
 
-    mapping(uint16 => mapping(address => uint256)) public whitelistUserMinted;
-    mapping(uint16 => mapping(address => uint256)) public publicUserMinted;
+    //  TokenId counter
+    uint256 private _nextTokenId;
 
+    // KIP Protocol 's Fund Address
+    address public KIPFundAddress = 0x6E3bbb13330102989Ac110163e4C649d0bB88777;
+
+    // Set max number of tiers for the sale event
+    uint256 public maxTier = 38;
+
+    //  Mappings to store Sale Configurations (Public Sale and Whitelist Sale)
+    mapping(uint256 => PublicSale) public publicSaleConfigs;
+    mapping(uint256 => WhitelistSale) public whitelistSaleConfigs;
+
+    //  Mappings to record total minted Licenses per `buyer` (by tier)
+    mapping(uint256 => mapping(address => uint256)) public whitelistUserMinted;
+    mapping(uint256 => mapping(address => uint256)) public publicUserMinted;
+
+    //  Mapping to store a list of authorized Operators
     mapping(address => bool) public kipOperator;
 
-    event OperatorChanged(address operator, bool enabled);
-    event TokenMinted(address indexed operator, bool whitelist, uint8 tier, uint256 price, address indexed to, uint256 token_id, string code);
+    //  A boolean flag to allow/block transferring License NFTs
+    bool public transferEnabled;
 
-    modifier onlyOperator(){
-        require(kipOperator[_msgSender()], "You are not the operator");
+    //  Store Base Token URI of the License NFT contract
+    string public baseTokenURI;
+
+    event OperatorChanged(address operator, bool enabled);
+    event TokenMinted(
+        address indexed operator,
+        address indexed to,
+        uint256 tier,
+        uint256 tokenId,
+        uint256 price,
+        bool whitelist,
+        string code
+    );
+
+    modifier onlyOperator() {
+        require(kipOperator[_msgSender()], "Unauthorized");
         _;
     }
 
-    function _baseURI() internal override view returns (string memory) {
-        return baseTokenURI;
-    }
-
-    function setTokenURI(string memory newuri) external onlyOwner {
-        baseTokenURI = newuri;
-    }
-
-    constructor(address initialOwner, address usdt_token, address usdc_token)
-        ERC721("TEST kip checker node", "KIPNODE")
-        Ownable(initialOwner)
-    {
-        USDT_Token = IERC20(usdt_token);
-        USDC_Token = IERC20(usdc_token);
-
+    constructor(
+        address initialOwner,
+        address paymentToken_
+    ) ERC721("KIP License", "KIPNODE") Ownable(initialOwner) {
+        paymentToken = IERC20(paymentToken_);
         baseTokenURI = "https://node-nft.kip.pro/";
     }
 
-    function _update(address to, uint256 tokenId, address auth)
-        internal
-        override(ERC721)
-        returns (address)
-    {
+    /** 
+        @notice Function for Minting Licenses in the Public Sale
+        @dev
+        - Requirements:
+          - Caller can be ANY
+        - Params:
+          - tier      Tier number (1 ~ 38)
+          - to        Address of the Receiver
+          - amount    A number of Licenses is requested to mint
+          - code      External message
+    */
+    function publicMint(
+        uint256 tier,
+        address to,
+        uint256 amount,
+        string calldata code
+    ) external {
+        //  Validate passing parameters
+        require(
+            tier != 0 && tier <= maxTier && amount != 0 && to != address(0),
+            "Invalid params"
+        );
+
+        //  Validate request's timestamp and the requesting amount
+        PublicSale memory config = publicSaleConfigs[tier];
+        address sender = _msgSender();
+        require(
+            config.start <= block.timestamp && block.timestamp <= config.end,
+            "Sale: Not yet started or ended"
+        );
+        require(config.price != 0, "Price is set zero");
+        require(
+            publicUserMinted[tier][sender] + amount <= config.maxPerUser &&
+                config.totalMintedAmount + amount <= config.maxPerTier,
+            "Exceed allowance"
+        );
+
+        //  Update state storage to avoid re-entrancy attack
+        publicSaleConfigs[tier].totalMintedAmount += uint64(amount); //  overflow is guaranteed by checking above
+        publicUserMinted[tier][sender] += amount;
+
+        //  Payment
+        uint256 totalPayment = config.price * amount;
+        paymentToken.safeTransferFrom(sender, KIPFundAddress, totalPayment);
+
+        //  Finally, call to mint License NFTs
+        for (uint256 i = 1; i <= amount; i++) {
+            _nextTokenId++;
+            _safeMint(to, _nextTokenId);
+            emit TokenMinted(
+                sender,
+                to,
+                tier,
+                _nextTokenId,
+                config.price,
+                false,
+                code
+            );
+        }
+    }
+
+    /** 
+        @notice Function for Minting Licenses in the Whitelist Sale
+        @dev
+            - Requirements:
+              - Caller can be ANY
+            - Params:
+              - tier            Tier number (1 ~ 38)
+              - to              Address of the Receiver
+              - amount          A number of Licenses is requested to mint
+              - maxAmount       A max number of Licenses can be purchased (set in the Merkle Tree)
+    */
+    function whitelistMint(
+        uint256 tier,
+        address to,
+        uint256 amount,
+        uint256 maxAmount,
+        bytes32[] calldata merkleProof
+    ) external {
+        //  Validate passing parameters
+        require(
+            tier != 0 && tier <= maxTier && to != address(0) && amount != 0,
+            "Invalid params"
+        );
+
+        //  Validate request's timestamp and the requesting amount
+        //  also validate proof to check its authentication
+        WhitelistSale memory config = whitelistSaleConfigs[tier];
+        address sender = _msgSender();
+        require(
+            config.start <= block.timestamp && block.timestamp <= config.end,
+            "Sale: Not yet started or ended"
+        );
+        require(
+            whitelistUserMinted[tier][sender] + amount <= maxAmount &&
+                config.totalMintedAmount + amount <= config.maxPerTier,
+            "Exceed allowance"
+        );
+        require(
+            validateProof(tier, to, maxAmount, merkleProof),
+            "Invalid proof"
+        );
+
+        //  Update state storage to avoid re-entrancy attack
+        //  overflow is guaranteed by checking above
+        whitelistUserMinted[tier][sender] += uint64(amount);
+        whitelistSaleConfigs[tier].totalMintedAmount += uint64(amount);
+
+        //  And finally mint the License NFts
+        for (uint256 i = 1; i <= amount; i++) {
+            _nextTokenId++;
+            _safeMint(to, _nextTokenId);
+            emit TokenMinted(sender, to, tier, _nextTokenId, 0, true, "");
+        }
+    }
+
+    /** 
+        @notice Update the new value of `baseTokenURI`
+        @dev
+        - Requirements:
+          - Caller must be `owner`
+        - Params:
+          - newUri      A new value of `baseTokenURI` (as string)
+    */
+    function setTokenURI(string calldata newUri) external onlyOwner {
+        baseTokenURI = newUri;
+    }
+
+    /** 
+        @notice Update the Public Sale configurations (per Tier)
+        @dev
+        - Requirements:
+          - Caller must be `owner`
+        - Params:
+          - tier            Tier number (1 ~ 38)
+          - settings:
+            - start               The starting time of the Public Sale (timestamp)
+            - end                 The ending time of the Public Sale (timestamp)
+            - price               The payment amount per License
+            - totalMintedAmount   The total Licenses that minted in the event (init value = 0)
+            - maxPerUser          The max number of Licenses is allowed to purchased
+            - maxPerTier          The max number of Licenses can be purchased in this tier
+    */
+    function setPublicSaleConfigs(
+        uint256 tier,
+        PublicSale calldata settings
+    ) external onlyOperator {
+        publicSaleConfigs[tier] = settings;
+    }
+
+    /** 
+        @notice Update the Whitelist Sale configurations (per Tier)
+        @dev
+        - Requirements:
+          - Caller must be `owner`
+        - Params:
+          - tier            Tier number (1 ~ 38)
+          - settings:
+            - start               The starting time of the Whitelist Sale (timestamp)
+            - end                 The ending time of the Whitelist Sale (timestamp)
+            - totalMintedAmount   The total Licenses that minted in the event (init value = 0)
+            - maxPerTier          The max number of Licenses can be purchased in this tier
+    */
+    function setWhitelistSaleConfigs(
+        uint256 tier,
+        WhitelistSale calldata settings
+    ) external onlyOperator {
+        whitelistSaleConfigs[tier] = settings;
+    }
+
+    /** 
+        @notice Allow/Disable License Transfer
+        @dev
+        - Requirements:
+          - Caller must have Operator role
+        - Params:
+          - newState            New state of `transferEnabled` (true or false)
+    */
+    function setTransferEnabled(bool newState) external onlyOperator {
+        transferEnabled = newState;
+    }
+
+    /** @notice Update Max Tier
+        @dev
+        - Requirements:
+          - Caller must be `owner`
+        - Params:
+          - newValue            The new value of `maxTier`
+    */
+    function setMaxTier(uint256 newValue) external onlyOwner {
+        maxTier = newValue;
+    }
+
+    /** @notice Update the new address of KIP Protocol Treasury
+        @dev
+        - Requirements:
+          - Caller must be `owner`
+        - Params:
+          - newAddress            New address of KIP Protocol Treasury
+    */
+    function setKIPFundAddress(address newAddress) external onlyOwner {
+        require(newAddress != address(0), "Set 0x00");
+        KIPFundAddress = newAddress;
+    }
+
+    /** @notice Set new Payment Token
+        @dev
+        - Requirements:
+          - Caller must be `owner`
+        - Params:
+          - token            New address of the payment acceptance (ERC-20)
+    */
+    function setPaymentToken(address token) external onlyOwner {
+        require(token != address(0), "Set 0x00");
+        paymentToken = IERC20(token);
+    }
+
+    /** @notice Update authorized Operators
+        @dev
+        - Requirements:
+          - Caller must be `owner`
+        - Params:
+          - operator            Address of the Operator
+          - enabled             Enable or Disable (true or false)
+    */
+    function setKipOperator(address operator, bool enabled) external onlyOwner {
+        kipOperator[operator] = enabled;
+        emit OperatorChanged(operator, enabled);
+    }
+
+    /** Validate Merkle Proof before calling whitelistMint function
+    - Merkle Root (hash) already set (per tier) before the Sale event
+    - Requirements:
+      - Caller can be ANY
+    - Params:
+      - tier            Tier number (1 ~ 38)
+      - to              Address of the Receiver
+      - maxAmount       A max number of Licenses can be purchased (set in the Merkle Tree)
+      - merkleProof     An array of connecting nodes in the Merkle Tree
+    - Return: `true` or `false` 
+    */
+    function validateProof(
+        uint256 tier,
+        address to,
+        uint256 maxAmount,
+        bytes32[] calldata merkleProof
+    ) public view returns (bool) {
+        bytes32 leaf = keccak256(abi.encode(to, maxAmount));
+        return
+            MerkleProof.verify(
+                merkleProof,
+                whitelistSaleConfigs[tier].merkleRoot,
+                leaf
+            );
+    }
+
+    /** Override the logic of ERC-721 implementation
+    - During the locking state, `transferEnabled = false`, License NFTs are un-transferrable
+    - Minting License is acceptable while burning is not allowed
+    */
+    function _update(
+        address to,
+        uint256 tokenId,
+        address auth
+    ) internal override(ERC721) returns (address) {
         address previousOwner = super._update(to, tokenId, auth);
-        require(TransferEnabled || previousOwner == address(0), "Transfer not enabled");
+        require(
+            transferEnabled || previousOwner == address(0),
+            "Transfer not enabled"
+        );
         return previousOwner;
     }
 
-    function public_mint(uint8 tier, address to, uint8 _amount, uint8 payment_token, string calldata _code) external nonReentrant {
-        require(tier<=MaxTierAmount && tier>0 && _amount>0, "11");
-        PublicSale storage saleConfig = publicSaleConfigs[tier];
-        require(saleConfig.maxPerTier>0, "tier price is zero");
-        require(publicUserMinted[tier][_msgSender()] + _amount <= saleConfig.maxPerUser, "Can't mint more than allowed");
-        require(saleConfig.mintedAmount + _amount <= saleConfig.maxPerTier, "Cann't mint more than allowed");
-        require(saleConfig.start <= block.timestamp && block.timestamp <= saleConfig.end, "Timestamp not allowed");
-        require(saleConfig.price>0, "Minting price is zero");
-
-        uint256 _price = saleConfig.price*_amount;
-        bool fsuccess = false;
-        if(payment_token==1)
-        {
-            fsuccess = USDT_Token.transferFrom(_msgSender(), address(this), _price);
-
-        }else
-        {
-            fsuccess = USDC_Token.transferFrom(_msgSender(), address(this), _price);
-        }
-        require(fsuccess, "Failed to transfer funds");
-
-        for (uint256 i = 1; i <= _amount; i++) {
-            _nextTokenId++;
-            _safeMint(to, _nextTokenId);
-            emit TokenMinted(_msgSender(), false, tier, saleConfig.price, to, _nextTokenId, _code);
-        }
-        saleConfig.mintedAmount += _amount;
-        publicUserMinted[tier][_msgSender()] += _amount;
-    }
-
-    function whitelist_mint(uint8 tier, address to, uint8 _amount, 
-                            uint256 _maxAmount, bytes32[] calldata _merkleProof) external nonReentrant {
-        require(tier<=MaxTierAmount && tier>0 && _amount>0 && _maxAmount>0, "11");
-        WhitelistSale storage saleConfig = whitelistSaleConfigs[tier];
-        require(saleConfig.mintedAmount + _amount <= saleConfig.maxPerTier, "Can't mint more than allowed");
-        require(whitelistUserMinted[tier][_msgSender()] + _amount <= _maxAmount, "Cann't mint more than allowed");
-        require(saleConfig.start <= block.timestamp && block.timestamp <= saleConfig.end, "Timestamp not allowed");
-
-        // bytes32 leaf = keccak256(abi.encode(_msgSender(), _maxAmount));
-        // require(MerkleProof.verify(_merkleProof, saleConfig.merkleRoot, leaf), "Invalid Merkle Proof");
-        require(check_whitelist_mint(tier,to,_maxAmount,_merkleProof), "Invalid Merkle Proof");
-        for (uint256 i = 1; i <= _amount; i++) {
-            _nextTokenId++;
-            _safeMint(to, _nextTokenId);
-            emit TokenMinted(_msgSender(), true, tier, 0, to, _nextTokenId, "");
-        }
-
-        saleConfig.mintedAmount += _amount;
-        whitelistUserMinted[tier][_msgSender()] += _amount;
-    }
-
-    function setPublicSaleConfigs(uint8 tier, uint64 _start, uint64 _end, uint256 _price, uint32 user_cap, uint32 total_cap) external onlyOperator {
-        publicSaleConfigs[tier].start = _start;
-        publicSaleConfigs[tier].end = _end;
-        publicSaleConfigs[tier].price = _price;
-        publicSaleConfigs[tier].maxPerUser = user_cap;
-        publicSaleConfigs[tier].maxPerTier = total_cap;
-    }
-
-    function setWhitelistSaleConfigs(uint8 tier, uint64 _start, uint64 _end, uint32 total_cap, bytes32 _merkleRoot) external onlyOperator {
-        whitelistSaleConfigs[tier].start = _start;
-        whitelistSaleConfigs[tier].end = _end;
-        whitelistSaleConfigs[tier].maxPerTier = total_cap;
-        whitelistSaleConfigs[tier].merkleRoot = _merkleRoot;
-    }
-
-    function setTransferEnabled(bool _enabled) external onlyOperator {
-        TransferEnabled = _enabled;
-    }
-
-    function setMaxTierAmount(uint16 new_address) external onlyOwner {
-        MaxTierAmount = new_address;
-    }
-
-    function setKIPFundAddress(address new_address) external onlyOwner {
-        KIPFundAddress = new_address;
-    }
-
-    function setUsdtToken(address newtoken) external onlyOwner {
-        USDT_Token = IERC20(newtoken);
-    }
-
-    function setUsdcToken(address newtoken) external onlyOwner {
-        USDC_Token = IERC20(newtoken);
-    }
-
-    function setKipOperator(address _address, bool enabled) external onlyOwner {
-        kipOperator[_address] = enabled;
-        emit OperatorChanged(_address, enabled);
-    }
-
-    function check_whitelist_mint(uint8 tier, address to,
-                            uint256 _maxAmount, bytes32[] calldata _merkleProof) public view returns (bool) {
-        require(tier<=MaxTierAmount && tier>0 && _maxAmount>0, "11");                            
-        bytes32 leaf = keccak256(abi.encode(to, _maxAmount));
-        WhitelistSale storage saleConfig = whitelistSaleConfigs[tier];
-        return MerkleProof.verify(_merkleProof, saleConfig.merkleRoot, leaf);
+    function _baseURI() internal view override returns (string memory) {
+        return baseTokenURI;
     }
 }
