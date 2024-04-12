@@ -6,9 +6,8 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract KIPNode is ERC721, Ownable, ReentrancyGuard {
+contract KIPNode is ERC721, Ownable {
     using SafeERC20 for IERC20;
 
     struct PublicSale {
@@ -38,7 +37,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     address public KIPFundAddress = 0x6E3bbb13330102989Ac110163e4C649d0bB88777;
 
     // Set max number of tiers for the sale event
-    uint256 public maxTier = 38;
+    uint256 constant public MAX_TIER = 38;
 
     //  Mappings to store Sale Configurations (Public Sale and Whitelist Sale)
     mapping(uint256 => PublicSale) public publicSaleConfigs;
@@ -54,8 +53,8 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     //  A boolean flag to allow/block transferring License NFTs
     bool public transferEnabled;
 
-    //  Store Base Token URI of the License NFT contract
-    string public baseTokenURI;
+    //  Store Base URI of the License NFT contract
+    string public baseURI;
 
     event OperatorChanged(address operator, bool enabled);
     event TokenMinted(
@@ -78,7 +77,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
         address paymentToken_
     ) ERC721("KIP License", "KIPNODE") Ownable(initialOwner) {
         paymentToken = IERC20(paymentToken_);
-        baseTokenURI = "https://node-nft.kip.pro/";
+        baseURI = "https://node-nft.kip.pro/";
     }
 
     /** 
@@ -100,7 +99,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     ) external {
         //  Validate passing parameters
         require(
-            tier != 0 && tier <= maxTier && amount != 0 && to != address(0),
+            tier != 0 && tier <= MAX_TIER && amount != 0 && to != address(0),
             "Invalid params"
         );
 
@@ -162,7 +161,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     ) external {
         //  Validate passing parameters
         require(
-            tier != 0 && tier <= maxTier && to != address(0) && amount != 0,
+            tier != 0 && tier <= MAX_TIER && to != address(0) && amount != 0,
             "Invalid params"
         );
 
@@ -198,15 +197,15 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     }
 
     /** 
-        @notice Update the new value of `baseTokenURI`
+        @notice Update the new value of `baseURI`
         @dev
         - Requirements:
           - Caller must be `owner`
         - Params:
-          - newUri      A new value of `baseTokenURI` (as string)
+          - newURI      A new value of `baseURI` (as string)
     */
-    function setTokenURI(string calldata newUri) external onlyOwner {
-        baseTokenURI = newUri;
+    function setBaseURI(string calldata newURI) external onlyOwner {
+        baseURI = newURI;
     }
 
     /** 
@@ -261,17 +260,6 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     */
     function setTransferEnabled(bool newState) external onlyOperator {
         transferEnabled = newState;
-    }
-
-    /** @notice Update Max Tier
-        @dev
-        - Requirements:
-          - Caller must be `owner`
-        - Params:
-          - newValue            The new value of `maxTier`
-    */
-    function setMaxTier(uint256 newValue) external onlyOwner {
-        maxTier = newValue;
     }
 
     /** @notice Update the new address of KIP Protocol Treasury
@@ -355,6 +343,6 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     }
 
     function _baseURI() internal view override returns (string memory) {
-        return baseTokenURI;
+        return baseURI;
     }
 }
