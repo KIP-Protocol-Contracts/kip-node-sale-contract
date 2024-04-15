@@ -1,0 +1,23 @@
+name: Slither Analysis
+on: [push]
+jobs:
+  # analyze:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: crytic/slither-action@v0.3.2
+  #       with:
+  #         slither-config: ".slither.config.json"
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install packages
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+      - run: npm ci
+        shell: bash
+      - name: Run Tests
+        run: npx hardhat test
