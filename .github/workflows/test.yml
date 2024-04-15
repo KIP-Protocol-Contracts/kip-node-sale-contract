@@ -1,13 +1,13 @@
 name: Slither Analysis
 on: [push]
 jobs:
-  # analyze:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: crytic/slither-action@v0.3.2
-  #       with:
-  #         slither-config: ".slither.config.json"
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crytic/slither-action@v0.3.2
+        with:
+          slither-config: ".slither.config.json"
   test:
     runs-on: ubuntu-latest
 
