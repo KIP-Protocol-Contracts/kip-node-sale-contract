@@ -63,3 +63,5 @@ How you know which event to track as the event hash is the same?
         true, block.timestamp
     );
 ```
+
+- What the mint limit 50,000? But I can find anywhere?
