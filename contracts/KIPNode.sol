@@ -6,8 +6,9 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract KIPNode is ERC721, Ownable {
+contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     struct PublicSale {
@@ -72,8 +73,8 @@ contract KIPNode is ERC721, Ownable {
         address indexed operator,
         uint256 tier,
         bool whitelist,
-        uint256 mint_count,
-        bool is_user,
+        uint256 user_mint_count,
+        uint256 tier_mint_count,
         uint256 block_timestamp
     );
 
@@ -106,7 +107,7 @@ contract KIPNode is ERC721, Ownable {
         address to,
         uint256 amount,
         string calldata code
-    ) external {
+    ) external nonReentrant {
         //  Validate passing parameters
         require(
             tier != 0 && tier <= MAX_TIER && amount != 0 && to != address(0),
@@ -129,21 +130,14 @@ contract KIPNode is ERC721, Ownable {
 
         //  Update state storage to avoid re-entrancy attack
         publicSaleConfigs[tier].totalMintedAmount += amount; //  overflow is guaranteed by checking above
-        emit MintCountUpdated(
-            sender,
-            tier,
-            false,
-            publicSaleConfigs[tier].totalMintedAmount,
-            false, block.timestamp
-        );
-
         publicUserMinted[tier][sender] += amount;
         emit MintCountUpdated(
             sender,
             tier,
             false,
             publicUserMinted[tier][sender],
-            true, block.timestamp
+            publicSaleConfigs[tier].totalMintedAmount,
+            block.timestamp
         );
 
         //  Payment
@@ -183,7 +177,7 @@ contract KIPNode is ERC721, Ownable {
         uint256 amount,
         uint256 maxAmount,
         bytes32[] calldata merkleProof
-    ) external {
+    ) external nonReentrant{
         //  Validate passing parameters
         require(
             tier != 0 && tier <= MAX_TIER && to != address(0) && amount != 0,
@@ -211,21 +205,14 @@ contract KIPNode is ERC721, Ownable {
         //  Update state storage to avoid re-entrancy attack
         //  overflow is guaranteed by checking above
         whitelistUserMinted[tier][sender] += amount;
-        emit MintCountUpdated(
-            sender,
-            tier,
-            true,
-            whitelistUserMinted[tier][sender],
-            true, block.timestamp
-        );
-
         whitelistSaleConfigs[tier].totalMintedAmount += amount;
         emit MintCountUpdated(
             sender,
             tier,
             true,
+            whitelistUserMinted[tier][sender],
             whitelistSaleConfigs[tier].totalMintedAmount,
-            false, block.timestamp
+            block.timestamp
         );
 
         //  And finally mint the License NFts
