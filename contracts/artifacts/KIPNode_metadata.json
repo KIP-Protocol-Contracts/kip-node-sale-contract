@@ -14,17 +14,34 @@
 					},
 					{
 						"internalType": "address",
-						"name": "usdt_token",
-						"type": "address"
-					},
-					{
-						"internalType": "address",
-						"name": "usdc_token",
+						"name": "paymentToken_",
 						"type": "address"
 					}
 				],
 				"stateMutability": "nonpayable",
 				"type": "constructor"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "target",
+						"type": "address"
+					}
+				],
+				"name": "AddressEmptyCode",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "AddressInsufficientBalance",
+				"type": "error"
 			},
 			{
 				"inputs": [
@@ -130,6 +147,11 @@
 				"type": "error"
 			},
 			{
+				"inputs": [],
+				"name": "FailedInnerCall",
+				"type": "error"
+			},
+			{
 				"inputs": [
 					{
 						"internalType": "address",
@@ -149,6 +171,17 @@
 					}
 				],
 				"name": "OwnableUnauthorizedAccount",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					}
+				],
+				"name": "SafeERC20FailedOperation",
 				"type": "error"
 			},
 			{
@@ -205,6 +238,43 @@
 				"anonymous": false,
 				"inputs": [
 					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "operator",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "tier",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "bool",
+						"name": "whitelist",
+						"type": "bool"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "mint_count",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "bool",
+						"name": "is_user",
+						"type": "bool"
+					}
+				],
+				"name": "MintCountUpdated",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
 						"indexed": false,
 						"internalType": "address",
 						"name": "operator",
@@ -243,22 +313,28 @@
 				"anonymous": false,
 				"inputs": [
 					{
-						"indexed": false,
+						"indexed": true,
 						"internalType": "address",
 						"name": "operator",
 						"type": "address"
 					},
 					{
-						"indexed": false,
-						"internalType": "bool",
-						"name": "whitelist",
-						"type": "bool"
+						"indexed": true,
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
 					},
 					{
 						"indexed": false,
-						"internalType": "uint8",
+						"internalType": "uint256",
 						"name": "tier",
-						"type": "uint8"
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "tokenId",
+						"type": "uint256"
 					},
 					{
 						"indexed": false,
@@ -268,15 +344,9 @@
 					},
 					{
 						"indexed": false,
-						"internalType": "address",
-						"name": "to",
-						"type": "address"
-					},
-					{
-						"indexed": false,
-						"internalType": "uint256",
-						"name": "token_id",
-						"type": "uint256"
+						"internalType": "bool",
+						"name": "whitelist",
+						"type": "bool"
 					},
 					{
 						"indexed": false,
@@ -328,51 +398,12 @@
 			},
 			{
 				"inputs": [],
-				"name": "MaxTierAmount",
+				"name": "MAX_TIER",
 				"outputs": [
 					{
-						"internalType": "uint16",
+						"internalType": "uint256",
 						"name": "",
-						"type": "uint16"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "TransferEnabled",
-				"outputs": [
-					{
-						"internalType": "bool",
-						"name": "",
-						"type": "bool"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "USDC_TokenAddress",
-				"outputs": [
-					{
-						"internalType": "address",
-						"name": "",
-						"type": "address"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "USDT_TokenAddress",
-				"outputs": [
-					{
-						"internalType": "address",
-						"name": "",
-						"type": "address"
+						"type": "uint256"
 					}
 				],
 				"stateMutability": "view",
@@ -417,46 +448,12 @@
 			},
 			{
 				"inputs": [],
-				"name": "baseTokenURI",
+				"name": "baseURI",
 				"outputs": [
 					{
 						"internalType": "string",
 						"name": "",
 						"type": "string"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint8",
-						"name": "tier",
-						"type": "uint8"
-					},
-					{
-						"internalType": "address",
-						"name": "to",
-						"type": "address"
-					},
-					{
-						"internalType": "uint256",
-						"name": "_maxAmount",
-						"type": "uint256"
-					},
-					{
-						"internalType": "bytes32[]",
-						"name": "_merkleProof",
-						"type": "bytes32[]"
-					}
-				],
-				"name": "check_whitelist_mint",
-				"outputs": [
-					{
-						"internalType": "bool",
-						"name": "",
-						"type": "bool"
 					}
 				],
 				"stateMutability": "view",
@@ -513,7 +510,7 @@
 						"type": "address"
 					}
 				],
-				"name": "kip_operator",
+				"name": "kipOperator",
 				"outputs": [
 					{
 						"internalType": "bool",
@@ -570,11 +567,24 @@
 				"type": "function"
 			},
 			{
+				"inputs": [],
+				"name": "paymentToken",
+				"outputs": [
+					{
+						"internalType": "contract IERC20",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
 				"inputs": [
 					{
-						"internalType": "uint8",
+						"internalType": "uint256",
 						"name": "tier",
-						"type": "uint8"
+						"type": "uint256"
 					},
 					{
 						"internalType": "address",
@@ -582,24 +592,87 @@
 						"type": "address"
 					},
 					{
-						"internalType": "uint8",
-						"name": "_amount",
-						"type": "uint8"
-					},
-					{
-						"internalType": "uint8",
-						"name": "payment_token",
-						"type": "uint8"
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
 					},
 					{
 						"internalType": "string",
-						"name": "_code",
+						"name": "code",
 						"type": "string"
 					}
 				],
-				"name": "public_mint",
+				"name": "publicMint",
 				"outputs": [],
 				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "publicSaleConfigs",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "price",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint32",
+						"name": "maxPerTier",
+						"type": "uint32"
+					},
+					{
+						"internalType": "uint32",
+						"name": "maxPerUser",
+						"type": "uint32"
+					},
+					{
+						"internalType": "uint256",
+						"name": "totalMintedAmount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint64",
+						"name": "start",
+						"type": "uint64"
+					},
+					{
+						"internalType": "uint64",
+						"name": "end",
+						"type": "uint64"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "publicUserMinted",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
 				"type": "function"
 			},
 			{
@@ -681,45 +754,12 @@
 			{
 				"inputs": [
 					{
-						"internalType": "uint8",
-						"name": "tier",
-						"type": "uint8"
-					},
-					{
-						"internalType": "uint64",
-						"name": "_start",
-						"type": "uint64"
-					},
-					{
-						"internalType": "uint64",
-						"name": "_end",
-						"type": "uint64"
+						"internalType": "string",
+						"name": "newURI",
+						"type": "string"
 					}
 				],
-				"name": "setDurationPublic",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint8",
-						"name": "tier",
-						"type": "uint8"
-					},
-					{
-						"internalType": "uint64",
-						"name": "_start",
-						"type": "uint64"
-					},
-					{
-						"internalType": "uint64",
-						"name": "_end",
-						"type": "uint64"
-					}
-				],
-				"name": "setDurationWhitelist",
+				"name": "setBaseURI",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -728,7 +768,7 @@
 				"inputs": [
 					{
 						"internalType": "address",
-						"name": "new_address",
+						"name": "newAddress",
 						"type": "address"
 					}
 				],
@@ -740,39 +780,8 @@
 			{
 				"inputs": [
 					{
-						"internalType": "uint16",
-						"name": "new_address",
-						"type": "uint16"
-					}
-				],
-				"name": "setMaxTierAmount",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint8",
-						"name": "tier",
-						"type": "uint8"
-					},
-					{
-						"internalType": "bytes32",
-						"name": "_merkleRoot",
-						"type": "bytes32"
-					}
-				],
-				"name": "setMerkleRoot",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
 						"internalType": "address",
-						"name": "_address",
+						"name": "operator",
 						"type": "address"
 					},
 					{
@@ -781,7 +790,7 @@
 						"type": "bool"
 					}
 				],
-				"name": "setOperator",
+				"name": "setKipOperator",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -789,53 +798,62 @@
 			{
 				"inputs": [
 					{
-						"internalType": "uint8",
-						"name": "tier",
-						"type": "uint8"
-					},
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					}
+				],
+				"name": "setPaymentToken",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
 					{
 						"internalType": "uint256",
-						"name": "_price",
-						"type": "uint256"
-					}
-				],
-				"name": "setTokenPrice",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "string",
-						"name": "newuri",
-						"type": "string"
-					}
-				],
-				"name": "setTokenURI",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint8",
 						"name": "tier",
-						"type": "uint8"
+						"type": "uint256"
 					},
 					{
-						"internalType": "uint16",
-						"name": "_cap_public",
-						"type": "uint16"
-					},
-					{
-						"internalType": "uint16",
-						"name": "_cap_whitelist",
-						"type": "uint16"
+						"components": [
+							{
+								"internalType": "uint256",
+								"name": "price",
+								"type": "uint256"
+							},
+							{
+								"internalType": "uint32",
+								"name": "maxPerTier",
+								"type": "uint32"
+							},
+							{
+								"internalType": "uint32",
+								"name": "maxPerUser",
+								"type": "uint32"
+							},
+							{
+								"internalType": "uint256",
+								"name": "totalMintedAmount",
+								"type": "uint256"
+							},
+							{
+								"internalType": "uint64",
+								"name": "start",
+								"type": "uint64"
+							},
+							{
+								"internalType": "uint64",
+								"name": "end",
+								"type": "uint64"
+							}
+						],
+						"internalType": "struct KIPNode.PublicSale",
+						"name": "settings",
+						"type": "tuple"
 					}
 				],
-				"name": "setTotalCap",
+				"name": "setPublicSaleConfigs",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -844,7 +862,7 @@
 				"inputs": [
 					{
 						"internalType": "bool",
-						"name": "_enabled",
+						"name": "newState",
 						"type": "bool"
 					}
 				],
@@ -856,43 +874,44 @@
 			{
 				"inputs": [
 					{
-						"internalType": "address",
-						"name": "newtoken",
-						"type": "address"
-					}
-				],
-				"name": "setUsdcToken",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "address",
-						"name": "newtoken",
-						"type": "address"
-					}
-				],
-				"name": "setUsdtToken",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint8",
+						"internalType": "uint256",
 						"name": "tier",
-						"type": "uint8"
+						"type": "uint256"
 					},
 					{
-						"internalType": "uint16",
-						"name": "_cap_public",
-						"type": "uint16"
+						"components": [
+							{
+								"internalType": "bytes32",
+								"name": "merkleRoot",
+								"type": "bytes32"
+							},
+							{
+								"internalType": "uint32",
+								"name": "maxPerTier",
+								"type": "uint32"
+							},
+							{
+								"internalType": "uint256",
+								"name": "totalMintedAmount",
+								"type": "uint256"
+							},
+							{
+								"internalType": "uint64",
+								"name": "start",
+								"type": "uint64"
+							},
+							{
+								"internalType": "uint64",
+								"name": "end",
+								"type": "uint64"
+							}
+						],
+						"internalType": "struct KIPNode.WhitelistSale",
+						"name": "settings",
+						"type": "tuple"
 					}
 				],
-				"name": "setUserCap",
+				"name": "setWhitelistSaleConfigs",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -932,215 +951,6 @@
 			{
 				"inputs": [
 					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"name": "tier_end_timestamp_public",
-				"outputs": [
-					{
-						"internalType": "uint64",
-						"name": "",
-						"type": "uint64"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"name": "tier_end_timestamp_whitelist",
-				"outputs": [
-					{
-						"internalType": "uint64",
-						"name": "",
-						"type": "uint64"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"name": "tier_minted_amounts_public",
-				"outputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"name": "tier_minted_amounts_whitelist",
-				"outputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"name": "tier_price_per_token",
-				"outputs": [
-					{
-						"internalType": "uint256",
-						"name": "",
-						"type": "uint256"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"name": "tier_start_timestamp_public",
-				"outputs": [
-					{
-						"internalType": "uint64",
-						"name": "",
-						"type": "uint64"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"name": "tier_start_timestamp_whitelist",
-				"outputs": [
-					{
-						"internalType": "uint64",
-						"name": "",
-						"type": "uint64"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"name": "tier_total_cap_public",
-				"outputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"name": "tier_total_cap_whitelist",
-				"outputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"name": "tier_user_cap_public",
-				"outputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					}
-				],
-				"name": "tier_whitelist_merkle_root",
-				"outputs": [
-					{
-						"internalType": "bytes32",
-						"name": "",
-						"type": "bytes32"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
 						"internalType": "uint256",
 						"name": "tokenId",
 						"type": "uint256"
@@ -1152,6 +962,19 @@
 						"internalType": "string",
 						"name": "",
 						"type": "string"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "transferEnabled",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
 					}
 				],
 				"stateMutability": "view",
@@ -1196,57 +1019,9 @@
 			{
 				"inputs": [
 					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					},
-					{
-						"internalType": "address",
-						"name": "",
-						"type": "address"
-					}
-				],
-				"name": "user_minted_amounts_public",
-				"outputs": [
-					{
 						"internalType": "uint256",
-						"name": "",
-						"type": "uint256"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint16",
-						"name": "",
-						"type": "uint16"
-					},
-					{
-						"internalType": "address",
-						"name": "",
-						"type": "address"
-					}
-				],
-				"name": "user_minted_amounts_whitelist",
-				"outputs": [
-					{
-						"internalType": "uint256",
-						"name": "",
-						"type": "uint256"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint8",
 						"name": "tier",
-						"type": "uint8"
+						"type": "uint256"
 					},
 					{
 						"internalType": "address",
@@ -1254,29 +1029,136 @@
 						"type": "address"
 					},
 					{
-						"internalType": "uint8",
-						"name": "_amount",
-						"type": "uint8"
-					},
-					{
 						"internalType": "uint256",
-						"name": "_maxAmount",
+						"name": "maxAmount",
 						"type": "uint256"
 					},
 					{
 						"internalType": "bytes32[]",
-						"name": "_merkleProof",
+						"name": "merkleProof",
 						"type": "bytes32[]"
 					}
 				],
-				"name": "whitelist_mint",
+				"name": "validateProof",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "tier",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "maxAmount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes32[]",
+						"name": "merkleProof",
+						"type": "bytes32[]"
+					}
+				],
+				"name": "whitelistMint",
 				"outputs": [],
 				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "whitelistSaleConfigs",
+				"outputs": [
+					{
+						"internalType": "bytes32",
+						"name": "merkleRoot",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "uint32",
+						"name": "maxPerTier",
+						"type": "uint32"
+					},
+					{
+						"internalType": "uint256",
+						"name": "totalMintedAmount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint64",
+						"name": "start",
+						"type": "uint64"
+					},
+					{
+						"internalType": "uint64",
+						"name": "end",
+						"type": "uint64"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "whitelistUserMinted",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
 				"type": "function"
 			}
 		],
 		"devdoc": {
 			"errors": {
+				"AddressEmptyCode(address)": [
+					{
+						"details": "There's no code at `target` (it is not a contract)."
+					}
+				],
+				"AddressInsufficientBalance(address)": [
+					{
+						"details": "The ETH balance of the account is not enough to perform the operation."
+					}
+				],
 				"ERC721IncorrectOwner(address,uint256,address)": [
 					{
 						"details": "Indicates an error related to the ownership over a particular token. Used in transfers.",
@@ -1344,6 +1226,11 @@
 						}
 					}
 				],
+				"FailedInnerCall()": [
+					{
+						"details": "A call to an address target failed. The target may have reverted."
+					}
+				],
 				"OwnableInvalidOwner(address)": [
 					{
 						"details": "The owner is not a valid owner account. (eg. `address(0)`)"
@@ -1352,6 +1239,11 @@
 				"OwnableUnauthorizedAccount(address)": [
 					{
 						"details": "The caller account is not authorized to perform an operation."
+					}
+				],
+				"SafeERC20FailedOperation(address)": [
+					{
+						"details": "An operation with an ERC20 token failed."
 					}
 				]
 			},
@@ -1389,6 +1281,9 @@
 				"ownerOf(uint256)": {
 					"details": "See {IERC721-ownerOf}."
 				},
+				"publicMint(uint256,address,uint256,string)": {
+					"details": "- Requirements: - Caller can be ANY - Params: - tier      Tier number (1 ~ 38) - to        Address of the Receiver - amount    A number of Licenses is requested to mint - code      External message"
+				},
 				"renounceOwnership()": {
 					"details": "Leaves the contract without owner. It will not be possible to call `onlyOwner` functions. Can only be called by the current owner. NOTE: Renouncing ownership will leave the contract without an owner, thereby disabling any functionality that is only available to the owner."
 				},
@@ -1400,6 +1295,27 @@
 				},
 				"setApprovalForAll(address,bool)": {
 					"details": "See {IERC721-setApprovalForAll}."
+				},
+				"setBaseURI(string)": {
+					"details": "- Requirements: - Caller must be `owner` - Params: - newURI      A new value of `baseURI` (as string)"
+				},
+				"setKIPFundAddress(address)": {
+					"details": "- Requirements: - Caller must be `owner` - Params: - newAddress            New address of KIP Protocol Treasury"
+				},
+				"setKipOperator(address,bool)": {
+					"details": "- Requirements: - Caller must be `owner` - Params: - operator            Address of the Operator - enabled             Enable or Disable (true or false)"
+				},
+				"setPaymentToken(address)": {
+					"details": "- Requirements: - Caller must be `owner` - Params: - token            New address of the payment acceptance (ERC-20)"
+				},
+				"setPublicSaleConfigs(uint256,(uint256,uint32,uint32,uint256,uint64,uint64))": {
+					"details": "- Requirements: - Caller must be `owner` - Params: - tier            Tier number (1 ~ 38) - settings: - start               The starting time of the Public Sale (timestamp) - end                 The ending time of the Public Sale (timestamp) - price               The payment amount per License - totalMintedAmount   The total Licenses that minted in the event (init value = 0) - maxPerUser          The max number of Licenses is allowed to purchased - maxPerTier          The max number of Licenses can be purchased in this tier"
+				},
+				"setTransferEnabled(bool)": {
+					"details": "- Requirements: - Caller must have Operator role - Params: - newState            New state of `transferEnabled` (true or false)"
+				},
+				"setWhitelistSaleConfigs(uint256,(bytes32,uint32,uint256,uint64,uint64))": {
+					"details": "- Requirements: - Caller must be `owner` - Params: - tier            Tier number (1 ~ 38) - settings: - start               The starting time of the Whitelist Sale (timestamp) - end                 The ending time of the Whitelist Sale (timestamp) - totalMintedAmount   The total Licenses that minted in the event (init value = 0) - maxPerTier          The max number of Licenses can be purchased in this tier"
 				},
 				"supportsInterface(bytes4)": {
 					"details": "See {IERC165-supportsInterface}."
@@ -1415,13 +1331,47 @@
 				},
 				"transferOwnership(address)": {
 					"details": "Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner."
+				},
+				"whitelistMint(uint256,address,uint256,uint256,bytes32[])": {
+					"details": "- Requirements: - Caller can be ANY - Params: - tier            Tier number (1 ~ 38) - to              Address of the Receiver - amount          A number of Licenses is requested to mint - maxAmount       A max number of Licenses can be purchased (set in the Merkle Tree)"
 				}
 			},
 			"version": 1
 		},
 		"userdoc": {
 			"kind": "user",
-			"methods": {},
+			"methods": {
+				"publicMint(uint256,address,uint256,string)": {
+					"notice": "Function for Minting Licenses in the Public Sale"
+				},
+				"setBaseURI(string)": {
+					"notice": "Update the new value of `baseURI`"
+				},
+				"setKIPFundAddress(address)": {
+					"notice": "Update the new address of KIP Protocol Treasury"
+				},
+				"setKipOperator(address,bool)": {
+					"notice": "Update authorized Operators"
+				},
+				"setPaymentToken(address)": {
+					"notice": "Set new Payment Token"
+				},
+				"setPublicSaleConfigs(uint256,(uint256,uint32,uint32,uint256,uint64,uint64))": {
+					"notice": "Update the Public Sale configurations (per Tier)"
+				},
+				"setTransferEnabled(bool)": {
+					"notice": "Allow/Disable License Transfer"
+				},
+				"setWhitelistSaleConfigs(uint256,(bytes32,uint32,uint256,uint64,uint64))": {
+					"notice": "Update the Whitelist Sale configurations (per Tier)"
+				},
+				"validateProof(uint256,address,uint256,bytes32[])": {
+					"notice": "Validate Merkle Proof before calling whitelistMint function - Merkle Root (hash) already set (per tier) before the Sale event - Requirements: - Caller can be ANY - Params: - tier            Tier number (1 ~ 38) - to              Address of the Receiver - maxAmount       A max number of Licenses can be purchased (set in the Merkle Tree) - merkleProof     An array of connecting nodes in the Merkle Tree - Return: `true` or `false` "
+				},
+				"whitelistMint(uint256,address,uint256,uint256,bytes32[])": {
+					"notice": "Function for Minting Licenses in the Whitelist Sale"
+				}
+			},
 			"version": 1
 		}
 	},
@@ -1435,7 +1385,7 @@
 			"bytecodeHash": "ipfs"
 		},
 		"optimizer": {
-			"enabled": true,
+			"enabled": false,
 			"runs": 200
 		},
 		"remappings": []
@@ -1463,6 +1413,22 @@
 			"urls": [
 				"bzz-raw://0ea104e577e63faea3b69c415637e99e755dcbf64c5833d7140c35a714d6d90c",
 				"dweb:/ipfs/Qmau6x4Ns9XdyynRCNNp3RhLqijJjFm7z5fyZazfYFGYdq"
+			]
+		},
+		"@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol": {
+			"keccak256": "0x6008dabfe393240d73d7dd7688033f72740d570aa422254d29a7dce8568f3aff",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://f5196ec75139918c6c7bb4251b36395e668f1fa6d206beba7e7520e74913940d",
+				"dweb:/ipfs/QmSyqjksXxmm2mCG6qRd1yuwLykypkSVBbnBnGqJRcuJMi"
+			]
+		},
+		"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol": {
+			"keccak256": "0x37bb49513c49c87c4642a891b13b63571bc87013dde806617aa1efb54605f386",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://b3036b3a83b7c48f96641f2a9002b9f2dcb6a5958dd670894ada21ae8229b3d0",
+				"dweb:/ipfs/QmUNfSBdoVtjhETaUJCYcaC7pTMgbhht926tJ2uXJbiVd3"
 			]
 		},
 		"@openzeppelin/contracts/token/ERC721/ERC721.sol": {
@@ -1495,6 +1461,14 @@
 			"urls": [
 				"bzz-raw://ed0bfc1b92153c5000e50f4021367b931bbe96372ac6facec3c4961b72053d02",
 				"dweb:/ipfs/Qmbwp8VDerjS5SV1quwHH1oMXxPQ93fzfLVqJ2RCqbowGE"
+			]
+		},
+		"@openzeppelin/contracts/utils/Address.sol": {
+			"keccak256": "0xaf28a975a78550e45f65e559a3ad6a5ad43b9b8a37366999abd1b7084eb70721",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://b7bd24e224f67f65bfadf85dc2929fa965456bb2415478bd0125471b5ce35245",
+				"dweb:/ipfs/QmRaydGr8BTHs1kvaZfsNU69pKzUAGFrvABn1KiRSbE51y"
 			]
 		},
 		"@openzeppelin/contracts/utils/Context.sol": {
@@ -1554,11 +1528,11 @@
 			]
 		},
 		"contracts/KIPNode.sol": {
-			"keccak256": "0x31be6a6bb9339a49dc939e0926a5b1c03a1341e3dc839b7ab1d7c7176f9e1f4f",
-			"license": "MIT",
+			"keccak256": "0x535c18154fd4b96102214db82e849aad4ebe8497dd9da3e1cef4ff3d115cf72b",
+			"license": "None",
 			"urls": [
-				"bzz-raw://25cc6a204981d3e04a014c34da8e1d975a7579483dbd92ec64cfc75d47b7914e",
-				"dweb:/ipfs/QmQpBarBYbmVRd28mwkYWWWjUzXAfPo5yDrw3Tm6UXU6E8"
+				"bzz-raw://0bd91c3e8893327b1eecb76a7c9ebacb3e1007c67b1cd6c282e38891d7c1ec23",
+				"dweb:/ipfs/QmSLtiZQsBN57a9kxFHhuZVqG8vQ1r4UCUNa48qUarqPAB"
 			]
 		}
 	},

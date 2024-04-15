@@ -14,7 +14,7 @@ contract KIPNode is ERC721, Ownable {
         uint256 price;
         uint32 maxPerTier;
         uint32 maxPerUser;
-        uint64 totalMintedAmount;
+        uint256 totalMintedAmount;
         uint64 start;
         uint64 end;
     }
@@ -22,7 +22,7 @@ contract KIPNode is ERC721, Ownable {
     struct WhitelistSale {
         bytes32 merkleRoot;
         uint32 maxPerTier;
-        uint64 totalMintedAmount;
+        uint256 totalMintedAmount;
         uint64 start;
         uint64 end;
     }
@@ -64,7 +64,17 @@ contract KIPNode is ERC721, Ownable {
         uint256 tokenId,
         uint256 price,
         bool whitelist,
-        string code
+        string code,
+        uint256 block_timestamp
+    );
+
+    event MintCountUpdated(
+        address indexed operator,
+        uint256 tier,
+        bool whitelist,
+        uint256 mint_count,
+        bool is_user,
+        uint256 block_timestamp
     );
 
     modifier onlyOperator() {
@@ -118,8 +128,23 @@ contract KIPNode is ERC721, Ownable {
         );
 
         //  Update state storage to avoid re-entrancy attack
-        publicSaleConfigs[tier].totalMintedAmount += uint64(amount); //  overflow is guaranteed by checking above
+        publicSaleConfigs[tier].totalMintedAmount += amount; //  overflow is guaranteed by checking above
+        emit MintCountUpdated(
+            sender,
+            tier,
+            false,
+            publicSaleConfigs[tier].totalMintedAmount,
+            false, block.timestamp
+        );
+
         publicUserMinted[tier][sender] += amount;
+        emit MintCountUpdated(
+            sender,
+            tier,
+            false,
+            publicUserMinted[tier][sender],
+            true, block.timestamp
+        );
 
         //  Payment
         uint256 totalPayment = config.price * amount;
@@ -136,7 +161,7 @@ contract KIPNode is ERC721, Ownable {
                 _nextTokenId,
                 config.price,
                 false,
-                code
+                code, block.timestamp
             );
         }
     }
@@ -185,14 +210,29 @@ contract KIPNode is ERC721, Ownable {
 
         //  Update state storage to avoid re-entrancy attack
         //  overflow is guaranteed by checking above
-        whitelistUserMinted[tier][sender] += uint64(amount);
-        whitelistSaleConfigs[tier].totalMintedAmount += uint64(amount);
+        whitelistUserMinted[tier][sender] += amount;
+        emit MintCountUpdated(
+            sender,
+            tier,
+            true,
+            whitelistUserMinted[tier][sender],
+            true, block.timestamp
+        );
+
+        whitelistSaleConfigs[tier].totalMintedAmount += amount;
+        emit MintCountUpdated(
+            sender,
+            tier,
+            true,
+            whitelistSaleConfigs[tier].totalMintedAmount,
+            false, block.timestamp
+        );
 
         //  And finally mint the License NFts
         for (uint256 i = 1; i <= amount; i++) {
             _nextTokenId++;
             _safeMint(to, _nextTokenId);
-            emit TokenMinted(sender, to, tier, _nextTokenId, 0, true, "");
+            emit TokenMinted(sender, to, tier, _nextTokenId, 0, true, "", block.timestamp);
         }
     }
 
