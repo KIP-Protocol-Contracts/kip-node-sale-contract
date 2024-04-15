@@ -65,8 +65,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
         uint256 tokenId,
         uint256 price,
         bool whitelist,
-        string code,
-        uint256 block_timestamp
+        string code
     );
 
     event MintCountUpdated(
@@ -74,8 +73,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
         uint256 tier,
         bool whitelist,
         uint256 user_mint_count,
-        uint256 tier_mint_count,
-        uint256 block_timestamp
+        uint256 tier_mint_count
     );
 
     modifier onlyOperator() {
@@ -136,8 +134,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
             tier,
             false,
             publicUserMinted[tier][sender],
-            publicSaleConfigs[tier].totalMintedAmount,
-            block.timestamp
+            publicSaleConfigs[tier].totalMintedAmount
         );
 
         //  Payment
@@ -155,7 +152,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
                 _nextTokenId,
                 config.price,
                 false,
-                code, block.timestamp
+                code
             );
         }
     }
@@ -211,15 +208,14 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
             tier,
             true,
             whitelistUserMinted[tier][sender],
-            whitelistSaleConfigs[tier].totalMintedAmount,
-            block.timestamp
+            whitelistSaleConfigs[tier].totalMintedAmount
         );
 
         //  And finally mint the License NFts
         for (uint256 i = 1; i <= amount; i++) {
             _nextTokenId++;
             _safeMint(to, _nextTokenId);
-            emit TokenMinted(sender, to, tier, _nextTokenId, 0, true, "", block.timestamp);
+            emit TokenMinted(sender, to, tier, _nextTokenId, 0, true, "");
         }
     }
 
