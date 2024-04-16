@@ -6,8 +6,6 @@ There's a line `Total Token Supply Available for Nodes: Up to 20%` What does it 
 - Will sale time window be updated interface future?
 - Will NFT will automatically be transferrable after certain amount of time?
 - Will baseURI be changed in the future?
-- What token range start [1, 2, 3, ..., 5000] or [0, 1, 2, ..., 4999]?
-    Currently is [1, 2, 3, ..., 5000]
 - How many roles of KIP team be introduced onchain?
     Currently, we have owner and operator
 - What kind of permissions owner and operator have?
