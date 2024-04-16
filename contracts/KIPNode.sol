@@ -19,7 +19,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
         uint64 start;
         uint64 end;
     }
-
+ 
     struct WhitelistSale {
         bytes32 merkleRoot;
         uint32 maxPerTier;
@@ -108,7 +108,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     ) external nonReentrant {
         //  Validate passing parameters
         require(
-            tier != 0 && tier <= MAX_TIER && amount != 0 && to != address(0),
+            tier != 0 && tier <= MAX_TIER && amount != 0 && to != address(0) && amount < 61,
             "Invalid params"
         );
 
