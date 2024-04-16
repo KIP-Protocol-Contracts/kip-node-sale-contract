@@ -41,8 +41,5 @@ There's a line `Total Token Supply Available for Nodes: Up to 20%` What does it 
     - So if we have 1000 of addresses in the whitelist, operator will compute 1000 times in the exact order, and we do it each tier. 
     - After 1000 addresses confirmed for an specified tier, the proof will be upload onchain to create proof
     - Operator can change this list later on
-- What number affect the whitelist?
-    - Address
-    - Amount of License in a tier
 - How many token will be set as payment set as payment token?
 - Who will allow to set payment token (owner or operator)?
