@@ -30,12 +30,14 @@ There's a line `Total Token Supply Available for Nodes: Up to 20%` What does it 
         uint64 end;
       ```
     - Everytime an wallet address added into whitelist per tier, we have to compute merkle proof with following structure with exact order. After get all the , the proof
-    [
-      {
-        to: 'address' // address allowed to mint
-        maxAmount: 'uint256' // max amount to mint in a tier
-      }
-    ]
+      ```json
+        [
+          {
+            to: 'address' // address allowed to mint
+            maxAmount: 'uint256' // max amount to mint in a tier
+          }
+        ]
+      ```
     - So if we have 1000 of addresses in the whitelist, operator will compute 1000 times in the exact order, and we do it each tier. 
     - After 1000 addresses confirmed for an specified tier, the proof will be upload onchain to create proof
     - Operator can change this list later on
