@@ -28,16 +28,6 @@ describe("ERC721 behaviors", function () {
   it("Should have a total supply of 50000", async function () {
     expect(await kipNode.totalSupply()).to.equal(50000);
   });
-
-  // it("Should not allow minting more than 50000 tokens", async function () {
-  //   // Mint 50000 tokens to the owner
-  //   for (let i = 0; i < 50000; i++) {
-  //     await kipNode.mint(owner.address);
-  //   }
-
-  //   // Try to mint one more token
-  //   await expect(kipNode.mint(owner.address)).to.be.revertedWith("Maximum supply reached");
-  // });
 });
 
 describe("Owner behaviors", function () {

@@ -1,0 +1,5 @@
+{
+  "solc_remaps": ["@openzeppelin=.deps/npm/@openzeppelin"],
+  "filter_paths": "contracts/mocks,.deps/,node_modules/",
+  "compile_force_framework": "hardhat"
+}
