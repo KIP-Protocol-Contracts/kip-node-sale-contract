@@ -59,7 +59,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
 
     event OperatorChanged(address operator, bool enabled);
     event TokenMinted(
-        address indexed operator,
+        address indexed sender,
         address indexed to,
         uint256 tier,
         uint256 tokenId,
@@ -69,11 +69,11 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     );
 
     event MintCountUpdated(
-        address indexed operator,
+        address indexed sender,
         uint256 tier,
         bool whitelist,
-        uint256 user_mint_count,
-        uint256 tier_mint_count
+        uint256 userMintCount,
+        uint256 tierMintCount
     );
 
     modifier onlyOperator() {
@@ -195,7 +195,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
             "Exceed allowance"
         );
         require(
-            validateProof(tier, to, maxAmount, merkleProof),
+            validateProof(tier, sender, maxAmount, merkleProof),
             "Invalid proof"
         );
 
