@@ -30,11 +30,6 @@ describe("ERC721 behaviors", function () {
   it("Should return the token symbol", async function () {
     expect(await kipNode.symbol()).to.equal("KIPNODE");
   });
-
-  it.skip("Should have a total supply of 50000 keep it flexiable for now", async function () {
-    // @ts-expect-error not implement this function in contract yet
-    expect(await kipNode.totalSupply()).to.equal(50000);
-  });
 });
 
 describe("Owner behaviors", function () {
@@ -85,15 +80,25 @@ describe("Owner behaviors", function () {
     expect(await kipNode.KIPFundAddress()).to.equal("0x000000000000000000000000000000000000dEaD");
   });
 
-  it("Only owner can setPaymentToken", async function () {
+  it("Should fail if non-owner setPaymentToken", async function() {
     const newPaymentTokenMock = await ethers.deployContract("PaymentTokenMock");
     await newPaymentTokenMock.waitForDeployment();
     const newPaymentTokenMockAddress = await newPaymentTokenMock.getAddress();
 
     await expect(kipNode.connect(addr1).setPaymentToken(newPaymentTokenMockAddress)).to.be.revertedWithCustomError(kipNode, "OwnableUnauthorizedAccount");
+  });
+
+
+  it("Should fail if owner setPaymentToken with non ERC20 address", async function() {
+    await expect(kipNode.connect(owner).setPaymentToken(await owner.getAddress())).to.be.reverted
+  })
+
+  it("Should success if owner setPaymentToken with ERC20 address", async function () {
+    const newPaymentTokenMock = await ethers.deployContract("PaymentTokenMock");
+    await newPaymentTokenMock.waitForDeployment();
+    const newPaymentTokenMockAddress = await newPaymentTokenMock.getAddress();
 
     await kipNode.connect(owner).setPaymentToken(newPaymentTokenMockAddress);
-
     expect(await kipNode.paymentToken()).to.equal(newPaymentTokenMockAddress);
   });
 });
