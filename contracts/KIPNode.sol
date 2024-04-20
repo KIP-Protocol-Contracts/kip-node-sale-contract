@@ -48,16 +48,12 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     mapping(uint256 => mapping(address => uint256)) public whitelistUserMinted;
     mapping(uint256 => mapping(address => uint256)) public publicUserMinted;
 
-    //  Mapping to store a list of authorized Operators
-    mapping(address => bool) public kipOperator;
-
     //  A boolean flag to allow/block transferring License NFTs
     bool public transferEnabled;
 
     //  Store Base URI of the License NFT contract
     string public baseURI;
-
-    event OperatorChanged(address operator, bool enabled);
+    
     event TokenMinted(
         address indexed sender,
         address indexed to,
@@ -75,11 +71,6 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
         uint256 userMintCount,
         uint256 tierMintCount
     );
-
-    modifier onlyOperator() {
-        require(kipOperator[_msgSender()], "Unauthorized");
-        _;
-    }
 
     constructor(
         address initialOwner,
@@ -249,7 +240,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     function setPublicSaleConfigs(
         uint256 tier,
         PublicSale calldata settings
-    ) external onlyOperator {
+    ) external onlyOwner {
         publicSaleConfigs[tier] = settings;
     }
 
@@ -269,7 +260,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     function setWhitelistSaleConfigs(
         uint256 tier,
         WhitelistSale calldata settings
-    ) external onlyOperator {
+    ) external onlyOwner {
         whitelistSaleConfigs[tier] = settings;
     }
 
@@ -281,7 +272,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
         - Params:
           - newState            New state of `transferEnabled` (true or false)
     */
-    function setTransferEnabled(bool newState) external onlyOperator {
+    function setTransferEnabled(bool newState) external onlyOwner {
         transferEnabled = newState;
     }
 
@@ -307,19 +298,6 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     function setPaymentToken(address token) external onlyOwner {
         require(token != address(0), "Set 0x00");
         paymentToken = IERC20(token);
-    }
-
-    /** @notice Update authorized Operators
-        @dev
-        - Requirements:
-          - Caller must be `owner`
-        - Params:
-          - operator            Address of the Operator
-          - enabled             Enable or Disable (true or false)
-    */
-    function setKipOperator(address operator, bool enabled) external onlyOwner {
-        kipOperator[operator] = enabled;
-        emit OperatorChanged(operator, enabled);
     }
 
     /** Validate Merkle Proof before calling whitelistMint function
