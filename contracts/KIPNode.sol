@@ -317,7 +317,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
         uint256 maxAmount,
         bytes32[] calldata merkleProof
     ) public view returns (bool) {
-        bytes32 leaf = keccak256(abi.encode(to, maxAmount));
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(to, maxAmount))));
         return
             MerkleProof.verify(
                 merkleProof,
