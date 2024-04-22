@@ -6,24 +6,23 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract KIPNode is ERC721, Ownable, ReentrancyGuard {
+contract KIPNode is ERC721, Ownable {
     using SafeERC20 for IERC20;
 
     struct PublicSale {
         uint256 price;
         uint32 maxPerTier;
         uint32 maxPerUser;
-        uint256 totalMintedAmount;
+        uint64 totalMintedAmount;
         uint64 start;
         uint64 end;
     }
- 
+
     struct WhitelistSale {
         bytes32 merkleRoot;
         uint32 maxPerTier;
-        uint256 totalMintedAmount;
+        uint64 totalMintedAmount;
         uint64 start;
         uint64 end;
     }
@@ -38,7 +37,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
     address public KIPFundAddress = 0x6E3bbb13330102989Ac110163e4C649d0bB88777;
 
     // Set max number of tiers for the sale event
-    uint256 constant public MAX_TIER = 38;
+    uint256 public constant MAX_TIER = 38;
 
     //  Mappings to store Sale Configurations (Public Sale and Whitelist Sale)
     mapping(uint256 => PublicSale) public publicSaleConfigs;
@@ -53,7 +52,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
 
     //  Store Base URI of the License NFT contract
     string public baseURI;
-    
+
     event TokenMinted(
         address indexed sender,
         address indexed to,
@@ -96,10 +95,14 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
         address to,
         uint256 amount,
         string calldata code
-    ) external nonReentrant {
+    ) external {
         //  Validate passing parameters
         require(
-            tier != 0 && tier <= MAX_TIER && amount != 0 && to != address(0) && amount < 61,
+            tier != 0 &&
+                tier <= MAX_TIER &&
+                amount != 0 &&
+                to != address(0) &&
+                amount < 61,
             "Invalid params"
         );
 
@@ -118,7 +121,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
         );
 
         //  Update state storage to avoid re-entrancy attack
-        publicSaleConfigs[tier].totalMintedAmount += amount; //  overflow is guaranteed by checking above
+        publicSaleConfigs[tier].totalMintedAmount += uint64(amount); //  overflow is guaranteed by checking above
         publicUserMinted[tier][sender] += amount;
         emit MintCountUpdated(
             sender,
@@ -158,6 +161,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
               - to              Address of the Receiver
               - amount          A number of Licenses is requested to mint
               - maxAmount       A max number of Licenses can be purchased (set in the Merkle Tree)
+              - merkleProof     An array of proof
     */
     function whitelistMint(
         uint256 tier,
@@ -165,7 +169,7 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
         uint256 amount,
         uint256 maxAmount,
         bytes32[] calldata merkleProof
-    ) external nonReentrant{
+    ) external {
         //  Validate passing parameters
         require(
             tier != 0 && tier <= MAX_TIER && to != address(0) && amount != 0,
@@ -186,14 +190,14 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
             "Exceed allowance"
         );
         require(
-            validateProof(tier, sender, maxAmount, merkleProof),
+            _validateProof(tier, sender, maxAmount, merkleProof),
             "Invalid proof"
         );
 
         //  Update state storage to avoid re-entrancy attack
         //  overflow is guaranteed by checking above
         whitelistUserMinted[tier][sender] += amount;
-        whitelistSaleConfigs[tier].totalMintedAmount += amount;
+        whitelistSaleConfigs[tier].totalMintedAmount += uint64(amount);
         emit MintCountUpdated(
             sender,
             tier,
@@ -311,13 +315,15 @@ contract KIPNode is ERC721, Ownable, ReentrancyGuard {
       - merkleProof     An array of connecting nodes in the Merkle Tree
     - Return: `true` or `false` 
     */
-    function validateProof(
+    function _validateProof(
         uint256 tier,
         address to,
         uint256 maxAmount,
         bytes32[] calldata merkleProof
-    ) public view returns (bool) {
-        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(to, maxAmount))));
+    ) private view returns (bool) {
+        bytes32 leaf = keccak256(
+            bytes.concat(keccak256(abi.encode(to, maxAmount)))
+        );
         return
             MerkleProof.verify(
                 merkleProof,
