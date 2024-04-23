@@ -4,6 +4,7 @@ import { KIPNode } from "../typechain-types";
 import { Signer } from "ethers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { OffchainUtils } from "../sdk/OffchainUtils";
+import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
 
 describe("ERC721 behaviors", function () {
   let kipNode: KIPNode, paymentTokenMock, owner, addr1, addr2, addrs;
@@ -108,7 +109,8 @@ describe("Whitelist behaviors", function () {
   addr2: Signer, 
   addr3: Signer, 
   addrs,
-  tier: number = 10;
+  tier: number = 10,
+  merkleTree: StandardMerkleTree<[string, string]>;
 
   beforeEach(async function () {
     [owner, addr1, addr2, addr3, ...addrs] = await ethers.getSigners();
@@ -124,14 +126,18 @@ describe("Whitelist behaviors", function () {
 
     const latestTimestamp = await time.latest()
 
-    await kipNode.connect(owner).setWhitelistSaleConfigs(tier, {
-      merkleRoot: OffchainUtils.generateMerkleRoot([
+    merkleTree = OffchainUtils.generateMerkleTree(
+      [
         { address: (await addr1.getAddress()), amount: "10" },
         { address: (await addr2.getAddress()), amount: "10" },
         { address: (await addr3.getAddress()), amount: "10" },
-      ]),
+      ]
+    );
+
+    await kipNode.connect(owner).setWhitelistSaleConfigs(tier, {
+      merkleRoot: merkleTree.root,
       maxPerTier: 10,
-      totalMintedAmount: 30,
+      totalMintedAmount: 0,
       start: latestTimestamp,
       end: latestTimestamp + 1000,
     });
@@ -143,7 +149,7 @@ describe("Whitelist behaviors", function () {
       (await addr1.getAddress()),
       10,
       10,
-      "0x00",
+      OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
     )
   });
 });
