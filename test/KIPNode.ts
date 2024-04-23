@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers, network } from "hardhat";
+import { ethers } from "hardhat";
 import { KIPNode } from "../typechain-types";
 import { Signer } from "ethers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
@@ -123,7 +123,54 @@ describe("Whitelist behaviors", function () {
       (await paymentTokenMock.getAddress()),
     ]);
     await paymentTokenMock.waitForDeployment();
+  });
 
+  it("Should fail if tier = 0", async function () {
+    const latestTimestamp = await time.latest()
+
+    merkleTree = OffchainUtils.generateMerkleTree(
+      [
+        { address: (await addr1.getAddress()), amount: "10" },
+        { address: (await addr2.getAddress()), amount: "10" },
+        { address: (await addr3.getAddress()), amount: "10" },
+      ]
+    );
+
+    await expect(kipNode.connect(owner).setWhitelistSaleConfigs(0, {
+      merkleRoot: merkleTree.root,
+      maxPerTier: 10,
+      totalMintedAmount: 0,
+      start: latestTimestamp,
+      end: latestTimestamp + 1_000_000,
+    })).to.be.reverted;
+
+    expect(tier).to.not.equal(0);
+  });
+
+  it("Should fail if end lower than lastTimestamp", async function () {
+    const latestTimestamp = await time.latest()
+
+    merkleTree = OffchainUtils.generateMerkleTree(
+      [
+        { address: (await addr1.getAddress()), amount: "10" },
+        { address: (await addr2.getAddress()), amount: "10" },
+        { address: (await addr3.getAddress()), amount: "10" },
+      ]
+    );
+
+    const end = latestTimestamp - 1_000
+    await expect(kipNode.connect(owner).setWhitelistSaleConfigs(0, {
+      merkleRoot: merkleTree.root,
+      maxPerTier: 10,
+      totalMintedAmount: 0,
+      start: latestTimestamp,
+      end: end,
+    })).to.be.reverted;
+
+    expect(end).to.be.greaterThan(latestTimestamp);
+  });
+
+  it('Should allow address in whitelist mint with correct amount', async function () {
     const latestTimestamp = await time.latest()
 
     merkleTree = OffchainUtils.generateMerkleTree(
@@ -139,11 +186,9 @@ describe("Whitelist behaviors", function () {
       maxPerTier: 10,
       totalMintedAmount: 0,
       start: latestTimestamp,
-      end: latestTimestamp + 1000,
+      end: latestTimestamp + 1_000_000,
     });
-  });
 
-  it("Should allow address in whitelist mint with correct amount", async function () {
     await kipNode.connect(addr1).whitelistMint(
       tier,
       (await addr1.getAddress()),
@@ -151,5 +196,36 @@ describe("Whitelist behaviors", function () {
       10,
       OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
     )
+  });
+
+  it("Should fails if mint different tier", async function () {
+    const latestTimestamp = await time.latest();
+    merkleTree = OffchainUtils.generateMerkleTree(
+      [
+        { address: (await addr1.getAddress()), amount: "10" },
+        { address: (await addr2.getAddress()), amount: "10" },
+        { address: (await addr3.getAddress()), amount: "10" },
+      ]
+    );
+
+    await kipNode.connect(owner).setWhitelistSaleConfigs(tier, {
+      merkleRoot: merkleTree.root,
+      maxPerTier: 10,
+      totalMintedAmount: 0,
+      start: latestTimestamp,
+      end: latestTimestamp + 1_000_000,
+    });
+
+    const differentTier = tier + 1;
+
+    await expect(kipNode.connect(addr1).whitelistMint(
+      differentTier,
+      (await addr1.getAddress()),
+      10,
+      10,
+      OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
+    )).to.be.revertedWith("Sale: Not yet started or ended");
+    
+    expect(tier).not.equal(differentTier);
   });
 });
