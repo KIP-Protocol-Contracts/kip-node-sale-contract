@@ -1,31 +1,35 @@
-import { BaseContract } from 'ethers';
 import { KIPNode } from '../typechain-types/contracts/KIPNode';
-import { KIPNode__factory } from '../typechain-types';
+import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
+
+export interface WhitelistInfo {
+    address: string;
+    amount: string;
+}
 
 export class OffchainUtils {
-    private readonly _kipNode: KIPNode;
-    constructor(
-        private _kipNodeAddress: string,
-    ) {
-        this._kipNode = new KIPNode__factory().attach(_kipNodeAddress) as KIPNode;
+    public static generateMerkleRoot(data: WhitelistInfo[]): string {
+        const tree = StandardMerkleTree.of(data.map(info => [info.address, info.amount]), ["address", "uint256"]);
+        return tree.root;
     }
 
-    private _generateMerkleRoot(data: string[]): string {
-        return data[0]
+    public static generateMerkleProof(tree: StandardMerkleTree, data: WhitelistInfo): string[] {
+        tree.getProof()
+        return tree.proof(data);
     }
 
     public generateWhitelistSale(
+        list: WhitelistInfo[],
         maxPerTier: number,
         totalMintedAmount: number,
         start: Date,
         end: Date,
     ): KIPNode.WhitelistSaleStruct {
         return {
-            merkleRoot: this._generateMerkleRoot([]),
+            merkleRoot: OffchainUtils.generateMerkleRoot(list),
             maxPerTier,
             totalMintedAmount,
-            start,
-            end,
+            start: Math.floor(start.getTime() / 1000),
+            end: Math.floor(end.getTime() / 1000),
         }
     }
 
@@ -42,8 +46,8 @@ export class OffchainUtils {
             maxPerTier,
             maxPerUser,
             totalMintedAmount,
-            start,
-            end,
+            start: Math.floor(start.getTime() / 1000),
+            end: Math.floor(end.getTime() / 1000),
         }
     }
 }
