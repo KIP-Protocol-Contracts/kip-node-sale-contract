@@ -20,5 +20,10 @@ jobs:
           node-version: '20.x'
       - run: npm ci
         shell: bash
+
+      - run: npx hardhat test
+        env:
+          REPORT_GAS: true
+
       - name: Coverage
         run: npx hardhat coverage && npx istanbul check-coverage --statements 90 --branches 90 --functions 90 --lines 90

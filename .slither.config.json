@@ -1,4 +1,0 @@
-{
-  "solc_remaps": ["@openzeppelin=.deps/npm/@openzeppelin"],
-  "filter-paths": ".deps|contracts/mocks"
-}
