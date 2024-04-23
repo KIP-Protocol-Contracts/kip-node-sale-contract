@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import {
   KIPNode,
   KIPNode__factory,
@@ -7,8 +7,9 @@ import {
   Token20__factory,
 } from "../typechain-types";
 import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
-import { ZeroAddress, ZeroHash, parseUnits } from "ethers";
+import { ZeroAddress, ZeroHash, getBytes, parseUnits } from "ethers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
+import { time, takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
 
 const EmptyPublicConfig: KIPNode.PublicSaleStruct = {
   price: BigInt(0),
@@ -27,6 +28,18 @@ const EmptyWhitelistConfig: KIPNode.WhitelistSaleStruct = {
   end: BigInt(0),
 };
 
+const provider = ethers.provider;
+
+const getProof = (tree: any, account: string): any => {
+  for (const [i, v] of tree.entries()) {
+    if (v[0] === account) return tree.getProof(i);
+  }
+};
+
+async function adjustTime(nextTimestamp: number): Promise<void> {
+  await time.increaseTo(nextTimestamp);
+}
+
 describe("KIPNode Sale Contract Testing", () => {
   let owner: HardhatEthersSigner, newOwner: HardhatEthersSigner;
   let accounts: HardhatEthersSigner[];
@@ -36,6 +49,7 @@ describe("KIPNode Sale Contract Testing", () => {
 
   const KIPFundAddress = "0x6E3bbb13330102989Ac110163e4C649d0bB88777";
   const AddressZero = ZeroAddress;
+  const MAX_TIER = 38;
 
   //  Generate Sale Event configs
   const currentTime = Math.floor(Date.now() / 1000);
@@ -60,20 +74,21 @@ describe("KIPNode Sale Contract Testing", () => {
     whitelistSaleEvent2: KIPNode.WhitelistSaleStruct;
 
   let whitelist1: any, whitelist2: any;
+  let treeEvent1: any, treeEvent2: any;
 
   before(async () => {
     [owner, newOwner, ...accounts] = await ethers.getSigners();
 
     const ERC20 = (await ethers.getContractFactory(
       "Token20",
-      owner
+      owner,
     )) as Token20__factory;
     usdt = await ERC20.deploy("USD Tether", "USDT");
     usdc = await ERC20.deploy("USD Circle", "USDC");
 
     const KIPNode = (await ethers.getContractFactory(
       "KIPNode",
-      owner
+      owner,
     )) as KIPNode__factory;
     kip = await KIPNode.deploy(owner.address, usdt.getAddress());
 
@@ -83,21 +98,23 @@ describe("KIPNode Sale Contract Testing", () => {
     ];
 
     whitelist2 = [
-      [accounts[2].address, BigInt(500)],
-      [accounts[3].address, BigInt(500)],
+      [accounts[0].address, BigInt(200)],
+      [accounts[2].address, BigInt(200)],
+      [accounts[3].address, BigInt(200)],
     ];
 
+    treeEvent1 = StandardMerkleTree.of(whitelist1, ["address", "uint256"]);
+    treeEvent2 = StandardMerkleTree.of(whitelist2, ["address", "uint256"]);
+
     whitelistSaleEvent1 = {
-      merkleRoot: StandardMerkleTree.of(whitelist1, ["address", "uint256"])
-        .root,
+      merkleRoot: treeEvent1.root,
       maxPerTier: 5000,
       totalMintedAmount: BigInt(0),
       start: BigInt(currentTime + 3600),
       end: BigInt(currentTime + 7 * 24 * 3600),
     };
     whitelistSaleEvent2 = {
-      merkleRoot: StandardMerkleTree.of(whitelist2, ["address", "uint256"])
-        .root,
+      merkleRoot: treeEvent2.root,
       maxPerTier: 10000,
       totalMintedAmount: BigInt(0),
       start: BigInt(currentTime + 3600),
@@ -106,13 +123,12 @@ describe("KIPNode Sale Contract Testing", () => {
   });
 
   it("Should be able to check the initialized settings of KIPNode contract", async () => {
-    const maxTier = 38;
     const baseURI = "https://node-nft.kip.pro/";
 
     expect(await kip.owner()).deep.equal(owner.address);
     expect(await kip.paymentToken()).deep.equal(await usdt.getAddress());
     expect(await kip.KIPFundAddress()).deep.equal(KIPFundAddress);
-    expect(await kip.MAX_TIER()).deep.equal(maxTier);
+    expect(await kip.MAX_TIER()).deep.equal(MAX_TIER);
     expect(await kip.transferEnabled()).deep.equal(false);
     expect(await kip.baseURI()).deep.equal(baseURI);
   });
@@ -125,7 +141,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.baseURI()).deep.equal(baseURI);
 
       await expect(
-        kip.connect(accounts[0]).setBaseURI(newURI)
+        kip.connect(accounts[0]).setBaseURI(newURI),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       expect(await kip.baseURI()).deep.equal(baseURI);
@@ -138,7 +154,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.baseURI()).deep.equal(baseURI);
 
       await expect(
-        kip.connect(owner).setBaseURI(empty)
+        kip.connect(owner).setBaseURI(empty),
       ).to.be.revertedWithCustomError(kip, `InvalidURI`);
 
       expect(await kip.baseURI()).deep.equal(baseURI);
@@ -170,7 +186,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.baseURI()).deep.equal(baseURI);
 
       await expect(
-        kip.connect(owner).setBaseURI(newURI)
+        kip.connect(owner).setBaseURI(newURI),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       expect(await kip.baseURI()).deep.equal(baseURI);
@@ -199,7 +215,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.transferEnabled()).deep.equal(false);
 
       await expect(
-        kip.connect(accounts[0]).setTransferEnabled(true)
+        kip.connect(accounts[0]).setTransferEnabled(true),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       expect(await kip.transferEnabled()).deep.equal(false);
@@ -221,7 +237,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.owner()).deep.equal(newOwner.address);
 
       await expect(
-        kip.connect(owner).setTransferEnabled(false)
+        kip.connect(owner).setTransferEnabled(false),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       expect(await kip.transferEnabled()).deep.equal(true);
@@ -245,7 +261,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.KIPFundAddress()).deep.equal(KIPFundAddress);
 
       await expect(
-        kip.connect(accounts[0]).setKIPFundAddress(accounts[0].address)
+        kip.connect(accounts[0]).setKIPFundAddress(accounts[0].address),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       expect(await kip.KIPFundAddress()).deep.equal(KIPFundAddress);
@@ -255,7 +271,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.KIPFundAddress()).deep.equal(KIPFundAddress);
 
       await expect(
-        kip.connect(owner).setKIPFundAddress(AddressZero)
+        kip.connect(owner).setKIPFundAddress(AddressZero),
       ).to.be.revertedWithCustomError(kip, `SetAddressZero`);
 
       expect(await kip.KIPFundAddress()).deep.equal(KIPFundAddress);
@@ -277,7 +293,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.owner()).deep.equal(newOwner.address);
 
       await expect(
-        kip.connect(owner).setKIPFundAddress(accounts[0].address)
+        kip.connect(owner).setKIPFundAddress(accounts[0].address),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       expect(await kip.KIPFundAddress()).deep.equal(owner.address);
@@ -301,7 +317,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.paymentToken()).deep.equal(await usdt.getAddress());
 
       await expect(
-        kip.connect(accounts[0]).setPaymentToken(usdc.getAddress())
+        kip.connect(accounts[0]).setPaymentToken(usdc.getAddress()),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       expect(await kip.paymentToken()).deep.equal(await usdt.getAddress());
@@ -311,7 +327,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.paymentToken()).deep.equal(await usdt.getAddress());
 
       await expect(
-        kip.connect(owner).setPaymentToken(AddressZero)
+        kip.connect(owner).setPaymentToken(AddressZero),
       ).to.be.revertedWithCustomError(kip, `SetAddressZero`);
 
       expect(await kip.paymentToken()).deep.equal(await usdt.getAddress());
@@ -333,7 +349,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.owner()).deep.equal(newOwner.address);
 
       await expect(
-        kip.connect(owner).setPaymentToken(usdt.getAddress())
+        kip.connect(owner).setPaymentToken(usdt.getAddress()),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       expect(await kip.paymentToken()).deep.equal(await usdc.getAddress());
@@ -371,7 +387,7 @@ describe("KIPNode Sale Contract Testing", () => {
       }
 
       await expect(
-        kip.connect(accounts[0]).setPublicSaleConfigs(tier, publicSaleEvent1)
+        kip.connect(accounts[0]).setPublicSaleConfigs(tier, publicSaleEvent1),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       //  Check storage state after the call
@@ -409,7 +425,7 @@ describe("KIPNode Sale Contract Testing", () => {
       }
 
       await expect(
-        kip.connect(owner).setPublicSaleConfigs(tier, publicSaleEvent1)
+        kip.connect(owner).setPublicSaleConfigs(tier, publicSaleEvent1),
       ).to.be.revertedWithCustomError(kip, `InvalidConfig`);
 
       //  Check storage state after the call
@@ -429,7 +445,7 @@ describe("KIPNode Sale Contract Testing", () => {
     });
 
     it("Should revert when Authorized client - Owner - sets a public sale event, but tier > MAX_TIER", async () => {
-      const tier = 39;
+      const tier = MAX_TIER + 1;
 
       //  Check storage state before the call
       {
@@ -447,7 +463,7 @@ describe("KIPNode Sale Contract Testing", () => {
       }
 
       await expect(
-        kip.connect(owner).setPublicSaleConfigs(tier, publicSaleEvent1)
+        kip.connect(owner).setPublicSaleConfigs(tier, publicSaleEvent1),
       ).to.be.revertedWithCustomError(kip, `InvalidConfig`);
 
       //  Check storage state after the call
@@ -525,7 +541,7 @@ describe("KIPNode Sale Contract Testing", () => {
       }
 
       await expect(
-        kip.connect(owner).setPublicSaleConfigs(tier, publicSaleEvent2)
+        kip.connect(owner).setPublicSaleConfigs(tier, publicSaleEvent2),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       //  Check storage state after the call
@@ -558,7 +574,7 @@ describe("KIPNode Sale Contract Testing", () => {
       };
 
       await expect(
-        kip.connect(owner).setPublicSaleConfigs(tier, newConfig)
+        kip.connect(owner).setPublicSaleConfigs(tier, newConfig),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       //  Check storage state after the call
@@ -669,7 +685,7 @@ describe("KIPNode Sale Contract Testing", () => {
       await expect(
         kip
           .connect(accounts[0])
-          .setWhitelistSaleConfigs(tier, whitelistSaleEvent1)
+          .setWhitelistSaleConfigs(tier, whitelistSaleEvent1),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       //  Check storage state after the call
@@ -704,7 +720,7 @@ describe("KIPNode Sale Contract Testing", () => {
       }
 
       await expect(
-        kip.connect(owner).setWhitelistSaleConfigs(tier, whitelistSaleEvent1)
+        kip.connect(owner).setWhitelistSaleConfigs(tier, whitelistSaleEvent1),
       ).to.be.revertedWithCustomError(kip, `InvalidConfig`);
 
       //  Check storage state after the call
@@ -723,7 +739,7 @@ describe("KIPNode Sale Contract Testing", () => {
     });
 
     it("Should revert when Authorized client - Owner - set a whitelist sale event, but tier > MAX_TIER", async () => {
-      const tier = 39;
+      const tier = MAX_TIER + 1;
       //  Check storage state before the call
       {
         let { merkleRoot, maxPerTier, totalMintedAmount, start, end } =
@@ -739,7 +755,7 @@ describe("KIPNode Sale Contract Testing", () => {
       }
 
       await expect(
-        kip.connect(owner).setWhitelistSaleConfigs(tier, whitelistSaleEvent1)
+        kip.connect(owner).setWhitelistSaleConfigs(tier, whitelistSaleEvent1),
       ).to.be.revertedWithCustomError(kip, `InvalidConfig`);
 
       //  Check storage state after the call
@@ -815,7 +831,7 @@ describe("KIPNode Sale Contract Testing", () => {
       }
 
       await expect(
-        kip.connect(owner).setWhitelistSaleConfigs(tier, whitelistSaleEvent2)
+        kip.connect(owner).setWhitelistSaleConfigs(tier, whitelistSaleEvent2),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       //  Check storage state after the call
@@ -852,7 +868,7 @@ describe("KIPNode Sale Contract Testing", () => {
       };
 
       await expect(
-        kip.connect(owner).setWhitelistSaleConfigs(tier, newConfig)
+        kip.connect(owner).setWhitelistSaleConfigs(tier, newConfig),
       ).to.be.revertedWithCustomError(kip, `OwnableUnauthorizedAccount`);
 
       //  Check storage state after the call
@@ -916,7 +932,7 @@ describe("KIPNode Sale Contract Testing", () => {
       ]).root;
       const newConfig: KIPNode.WhitelistSaleStruct = {
         merkleRoot: merkleRoot,
-        maxPerTier: 15000,
+        maxPerTier: 200,
         totalMintedAmount: BigInt(0),
         start: BigInt(currentTime + 3600),
         end: BigInt(currentTime + 7 * 24 * 3600),
@@ -941,6 +957,570 @@ describe("KIPNode Sale Contract Testing", () => {
       //  set back to normal
       await kip.connect(newOwner).transferOwnership(owner.address);
       expect(await kip.owner()).deep.equal(owner.address);
+    });
+  });
+
+  describe("whitelistMint() functional testing", () => {
+    it("Should revert when whitelisted user tries to mint License, but tier = 0", async () => {
+      const tier = 0;
+      const to = accounts[0].address;
+      const amount = BigInt(10);
+      const maxAmount = BigInt(150);
+      const merkleProof = getProof(treeEvent1, accounts[0].address);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+
+      await expect(
+        kip
+          .connect(accounts[0])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      ).to.be.revertedWithCustomError(kip, `InvalidRequest`);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+    });
+
+    it("Should revert when whitelisted user tries to mint License, but tier > MAX_TIER", async () => {
+      const tier = MAX_TIER + 1;
+      const to = accounts[0].address;
+      const amount = BigInt(10);
+      const maxAmount = BigInt(150);
+      const merkleProof = getProof(treeEvent1, accounts[0].address);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+
+      await expect(
+        kip
+          .connect(accounts[0])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      ).to.be.revertedWithCustomError(kip, `InvalidRequest`);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+    });
+
+    it("Should revert when whitelisted user tries to mint License, but receiver = 0x00", async () => {
+      const tier = 31;
+      const to = ZeroAddress;
+      const amount = BigInt(10);
+      const maxAmount = BigInt(150);
+      const merkleProof = getProof(treeEvent1, accounts[0].address);
+
+      await expect(
+        kip
+          .connect(accounts[0])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      ).to.be.revertedWithCustomError(kip, `InvalidRequest`);
+    });
+
+    it("Should revert when whitelisted user tries to mint License, but amount = 0", async () => {
+      const tier = 31;
+      const to = accounts[0].address;
+      const amount = BigInt(0);
+      const maxAmount = BigInt(150);
+      const merkleProof = getProof(treeEvent1, accounts[0].address);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+
+      await expect(
+        kip
+          .connect(accounts[0])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      ).to.be.revertedWithCustomError(kip, `InvalidRequest`);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+    });
+
+    it("Should revert when whitelisted user tries to mint License, but event not yet started", async () => {
+      const tier = 31;
+      const to = accounts[0].address;
+      const amount = BigInt(10);
+      const maxAmount = BigInt(150);
+      const merkleProof = getProof(treeEvent1, accounts[0].address);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+
+      await expect(
+        kip
+          .connect(accounts[0])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      ).to.be.revertedWithCustomError(kip, `SaleEventNotExist`);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+    });
+
+    it("Should revert when whitelisted user tries to mint License, but event already ended", async () => {
+      const tier = 31;
+      const to = accounts[0].address;
+      const amount = BigInt(10);
+      const maxAmount = BigInt(150);
+      const merkleProof = getProof(treeEvent1, accounts[0].address);
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const expiry = Number((await kip.whitelistSaleConfigs(tier)).end) + 60;
+
+      //  take a snapshot before increasing block.timestamp
+      const snapshot = await takeSnapshot();
+      if (timestamp < expiry) await adjustTime(expiry);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+
+      await expect(
+        kip
+          .connect(accounts[0])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      ).to.be.revertedWithCustomError(kip, `SaleEventNotExist`);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+
+      //  set back to normal
+      await snapshot.restore();
+    });
+
+    it("Should revert when unauthorized user tries to mint License, but proof not valid - Proof from others", async () => {
+      const tier = 31;
+      const to = accounts[10].address;
+      const amount = BigInt(50);
+      const maxAmount = BigInt(150);
+      const merkleProof = getProof(treeEvent1, accounts[0].address);
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
+
+      //  take a snapshot before increasing block.timestamp
+      const snapshot = await takeSnapshot();
+      if (timestamp < start) await adjustTime(start);
+
+      expect(await kip.balanceOf(accounts[10].address)).deep.equal(0);
+
+      await expect(
+        kip
+          .connect(accounts[10])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      ).to.be.revertedWithCustomError(kip, `InvalidProof`);
+
+      expect(await kip.balanceOf(accounts[10].address)).deep.equal(0);
+
+      //  set back to normal
+      await snapshot.restore();
+    });
+
+    it("Should revert when authorized user tries to mint License, but proof not valid - maxAmount incorrected", async () => {
+      const tier = 31;
+      const to = accounts[0].address;
+      const amount = BigInt(50);
+      const maxAmount = BigInt(500);
+      const merkleProof = getProof(treeEvent1, accounts[0].address);
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
+
+      //  take a snapshot before increasing block.timestamp
+      const snapshot = await takeSnapshot();
+      if (timestamp < start) await adjustTime(start);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+
+      await expect(
+        kip
+          .connect(accounts[0])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      ).to.be.revertedWithCustomError(kip, `InvalidProof`);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+
+      //  set back to normal
+      await snapshot.restore();
+    });
+
+    it("Should revert when authorized user tries to mint License, but proof not valid - Proof generated for a different tier", async () => {
+      const tier = 31;
+      const to = accounts[0].address;
+      const amount = BigInt(50);
+      const maxAmount = BigInt(150);
+      const merkleProof = getProof(treeEvent2, accounts[0].address);
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
+
+      //  take a snapshot before increasing block.timestamp
+      const snapshot = await takeSnapshot();
+      if (timestamp < start) await adjustTime(start);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+
+      await expect(
+        kip
+          .connect(accounts[0])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      ).to.be.revertedWithCustomError(kip, `InvalidProof`);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+
+      //  set back to normal
+      await snapshot.restore();
+    });
+
+    it("Should succeed when authorized user requests to mint Licenses - Partial mint", async () => {
+      const tier = 31;
+      const to = accounts[0].address;
+      const amount = BigInt(50);
+      const maxAmount = BigInt(150);
+      const merkleProof = getProof(treeEvent1, accounts[0].address);
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
+
+      //  Adjust block.timestamp
+      if (timestamp < start) await adjustTime(start);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
+
+      await expect(
+        kip
+          .connect(accounts[0])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      )
+        .to.emit(kip, "MintCountUpdated")
+        .withArgs(accounts[0].address, tier, true, amount, amount)
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[0].address, //  sender
+          accounts[0].address, //  to
+          tier,
+          1, //  tokenId
+          0, // price
+          true, //  whitelist
+          "",
+        )
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[0].address, //  sender
+          accounts[0].address, //  to
+          tier,
+          50, //  tokenId
+          0, // price
+          true, //  whitelist
+          "",
+        );
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(amount);
+      expect(
+        await kip.whitelistUserMinted(tier, accounts[0].address),
+      ).deep.equal(amount);
+      expect(
+        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+      ).deep.equal(amount);
+    });
+
+    it("Should succeed when authorized user requests to mint Licenses - Mint remaining allocation", async () => {
+      const tier = 31;
+      const to = accounts[0].address;
+      const amount = BigInt(100);
+      const maxAmount = BigInt(150);
+      const merkleProof = getProof(treeEvent1, accounts[0].address);
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
+
+      //  Adjust block.timestamp
+      if (timestamp < start) await adjustTime(start);
+
+      const balance = await kip.balanceOf(accounts[0].address);
+
+      await expect(
+        kip
+          .connect(accounts[0])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      )
+        .to.emit(kip, "MintCountUpdated")
+        .withArgs(
+          accounts[0].address,
+          tier,
+          true,
+          balance + amount, // minted amount (user)
+          balance + amount, // total minted amount (tier)
+        )
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[0].address, //  sender
+          accounts[0].address, //  to
+          tier,
+          51, //  tokenId
+          0, // price
+          true, //  whitelist
+          "",
+        )
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[0].address, //  sender
+          accounts[0].address, //  to
+          tier,
+          150, //  tokenId
+          0, // price
+          true, //  whitelist
+          "",
+        );
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(
+        balance + amount,
+      );
+      expect(
+        await kip.whitelistUserMinted(tier, accounts[0].address),
+      ).deep.equal(balance + amount);
+      expect(
+        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+      ).deep.equal(balance + amount);
+    });
+
+    it("Should revert when authorized user tries to mint License, but exceed max allowance - Max Per User", async () => {
+      const tier = 31;
+      const to = accounts[0].address;
+      const amount = BigInt(50);
+      const maxAmount = BigInt(150);
+      const merkleProof = getProof(treeEvent1, accounts[0].address);
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
+
+      //  adjust timestamp
+      if (timestamp < start) await adjustTime(start);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(maxAmount);
+
+      await expect(
+        kip
+          .connect(accounts[0])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      ).to.be.revertedWithCustomError(kip, `ExceedAllowance`);
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(maxAmount);
+      expect(
+        await kip.whitelistUserMinted(tier, accounts[0].address),
+      ).deep.equal(maxAmount);
+      expect(
+        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+      ).deep.equal(maxAmount);
+    });
+
+    it("Should succeed when authorized user requests to mint Licenses - First partial minting", async () => {
+      const tier = 31;
+      const to = accounts[1].address;
+      const amount = BigInt(50);
+      const maxAmount = BigInt(150);
+      const merkleProof = getProof(treeEvent1, accounts[1].address);
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
+
+      //  Adjust block.timestamp
+      if (timestamp < start) await adjustTime(start);
+
+      const totalMintedAmount = (await kip.whitelistSaleConfigs(tier))
+        .totalMintedAmount;
+      expect(await kip.balanceOf(accounts[1].address)).deep.equal(0);
+
+      await expect(
+        kip
+          .connect(accounts[1])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      )
+        .to.emit(kip, "MintCountUpdated")
+        .withArgs(
+          accounts[1].address,
+          tier,
+          true,
+          amount, // minted amount (user)
+          totalMintedAmount + amount, // total minted amount (tier)
+        )
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[1].address, //  sender
+          accounts[1].address, //  to
+          tier,
+          151, //  tokenId
+          0, // price
+          true, //  whitelist
+          "",
+        )
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[1].address, //  sender
+          accounts[1].address, //  to
+          tier,
+          200, //  tokenId
+          0, // price
+          true, //  whitelist
+          "",
+        );
+
+      expect(await kip.balanceOf(accounts[1].address)).deep.equal(amount);
+      expect(
+        await kip.whitelistUserMinted(tier, accounts[1].address),
+      ).deep.equal(amount);
+      expect(
+        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+      ).deep.equal(totalMintedAmount + amount);
+    });
+
+    it("Should revert when authorized user tries to mint License, but exceed max allowance - Max Per Tier", async () => {
+      const tier = 31;
+      const to = accounts[1].address;
+      const amount = BigInt(50);
+      const maxAmount = BigInt(150);
+      const merkleProof = getProof(treeEvent1, accounts[1].address);
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
+
+      //  adjust timestamp
+      if (timestamp < start) await adjustTime(start);
+
+      const totalMintedAmount = (await kip.whitelistSaleConfigs(tier))
+        .totalMintedAmount;
+      const balance = await kip.balanceOf(accounts[1].address);
+
+      await expect(
+        kip
+          .connect(accounts[1])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      ).to.be.revertedWithCustomError(kip, `ExceedAllowance`);
+
+      expect(await kip.balanceOf(accounts[1].address)).deep.equal(balance);
+      expect(
+        await kip.whitelistUserMinted(tier, accounts[1].address),
+      ).deep.equal(balance);
+      expect(
+        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+      ).deep.equal(totalMintedAmount);
+    });
+
+    it("Should succeed when authorized user requests to mint Licenses - Full mint", async () => {
+      const tier = 32;
+      const to = accounts[0].address;
+      const amount = BigInt(200);
+      const maxAmount = BigInt(200);
+      const merkleProof = getProof(treeEvent2, accounts[0].address);
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
+
+      //  Adjust block.timestamp
+      if (timestamp < start) await adjustTime(start);
+
+      const balance = await kip.balanceOf(accounts[0].address);
+
+      await expect(
+        kip
+          .connect(accounts[0])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      )
+        .to.emit(kip, "MintCountUpdated")
+        .withArgs(accounts[0].address, tier, true, amount, amount)
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[0].address, //  sender
+          accounts[0].address, //  to
+          tier,
+          201, //  tokenId
+          0, // price
+          true, //  whitelist
+          "",
+        )
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[0].address, //  sender
+          accounts[0].address, //  to
+          tier,
+          400, //  tokenId
+          0, // price
+          true, //  whitelist
+          "",
+        );
+
+      expect(await kip.balanceOf(accounts[0].address)).deep.equal(
+        balance + amount,
+      );
+      expect(
+        await kip.whitelistUserMinted(tier, accounts[0].address),
+      ).deep.equal(amount);
+      expect(
+        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+      ).deep.equal(amount);
+    });
+
+    it("Should succeed when authorized user requests to mint Licenses - Different Receiver", async () => {
+      const tier = 32;
+      const to = accounts[5].address;
+      const amount = BigInt(50);
+      const maxAmount = BigInt(200);
+      const merkleProof = getProof(treeEvent2, accounts[2].address);
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
+
+      //  Adjust block.timestamp
+      if (timestamp < start) await adjustTime(start);
+
+      const totalMintedAmount = (await kip.whitelistSaleConfigs(tier))
+        .totalMintedAmount;
+      expect(await kip.balanceOf(accounts[2].address)).deep.equal(0);
+      expect(await kip.balanceOf(accounts[5].address)).deep.equal(0);
+
+      await expect(
+        kip
+          .connect(accounts[2])
+          .whitelistMint(tier, to, amount, maxAmount, merkleProof),
+      )
+        .to.emit(kip, "MintCountUpdated")
+        .withArgs(
+          accounts[2].address,
+          tier,
+          true,
+          amount, //  minted amount (user)
+          totalMintedAmount + amount, // total minted amount (tier)
+        )
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[2].address, //  sender
+          accounts[5].address, //  to
+          tier,
+          401, //  tokenId
+          0, // price
+          true, //  whitelist
+          "",
+        )
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[2].address, //  sender
+          accounts[5].address, //  to
+          tier,
+          450, //  tokenId
+          0, // price
+          true, //  whitelist
+          "",
+        );
+
+      expect(await kip.balanceOf(accounts[2].address)).deep.equal(0);
+      expect(await kip.balanceOf(accounts[5].address)).deep.equal(amount);
+      expect(
+        await kip.whitelistUserMinted(tier, accounts[2].address),
+      ).deep.equal(amount);
+      expect(
+        await kip.whitelistUserMinted(tier, accounts[5].address),
+      ).deep.equal(0);
+      expect(
+        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+      ).deep.equal(totalMintedAmount + amount);
     });
   });
 });
