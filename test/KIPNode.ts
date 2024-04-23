@@ -125,7 +125,8 @@ describe("Whitelist behaviors", function () {
     await paymentTokenMock.waitForDeployment();
   });
 
-  it("Should fail if tier = 0", async function () {
+  // Handle offchain
+  it.skip("Should fail if tier = 0", async function () {
     const latestTimestamp = await time.latest()
 
     merkleTree = OffchainUtils.generateMerkleTree(
@@ -147,7 +148,8 @@ describe("Whitelist behaviors", function () {
     expect(tier).to.not.equal(0);
   });
 
-  it("Should fail if end lower than lastTimestamp", async function () {
+  // Handle offchain
+  it.skip("Should fail if end lower than lastTimestamp", async function () {
     const latestTimestamp = await time.latest()
 
     merkleTree = OffchainUtils.generateMerkleTree(
@@ -228,4 +230,97 @@ describe("Whitelist behaviors", function () {
     
     expect(tier).not.equal(differentTier);
   });
+
+  it("Should fails Invalid proof if sender not in whitelist", async function () {
+    const latestTimestamp = await time.latest();
+    merkleTree = OffchainUtils.generateMerkleTree(
+      [
+        { address: (await addr1.getAddress()), amount: "10" },
+        { address: (await addr2.getAddress()), amount: "10" },
+        { address: (await addr3.getAddress()), amount: "10" },
+      ]
+    );
+
+    await kipNode.connect(owner).setWhitelistSaleConfigs(tier, {
+      merkleRoot: merkleTree.root,
+      maxPerTier: 10,
+      totalMintedAmount: 0,
+      start: latestTimestamp,
+      end: latestTimestamp + 1_000_000,
+    });
+
+
+    await expect(kipNode.connect(owner).whitelistMint(
+      tier,
+      (await addr1.getAddress()),
+      10,
+      10,
+      OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
+    )).to.be.revertedWith("Invalid proof");
+  });
+
+  it("Should fails if minted amount exceed maxPerTier", async function () {
+    const latestTimestamp = await time.latest()
+
+    merkleTree = OffchainUtils.generateMerkleTree(
+      [
+        { address: (await addr1.getAddress()), amount: "10" },
+        { address: (await addr2.getAddress()), amount: "10" },
+        { address: (await addr3.getAddress()), amount: "10" },
+      ]
+    );
+
+    await kipNode.connect(owner).setWhitelistSaleConfigs(tier, {
+      merkleRoot: merkleTree.root,
+      maxPerTier: 10,
+      totalMintedAmount: 5, // 5 left
+      start: latestTimestamp,
+      end: latestTimestamp + 1_000_000,
+    });
+
+    await expect(kipNode.connect(addr1).whitelistMint(
+      tier,
+      (await addr1.getAddress()),
+      10,
+      10,
+      OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
+    )).to.be.revertedWith("Exceed allowance");
+  });
+
+  it("Should fails if minted amount exceed maxAmount per sender", async function () {
+    const latestTimestamp = await time.latest()
+
+    merkleTree = OffchainUtils.generateMerkleTree(
+      [
+        { address: (await addr1.getAddress()), amount: "10" },
+        { address: (await addr2.getAddress()), amount: "10" },
+        { address: (await addr3.getAddress()), amount: "10" },
+      ]
+    );
+
+    await kipNode.connect(owner).setWhitelistSaleConfigs(tier, {
+      merkleRoot: merkleTree.root,
+      maxPerTier: 100,
+      totalMintedAmount: 0,
+      start: latestTimestamp,
+      end: latestTimestamp + 1_000_000,
+    });
+
+    await kipNode.connect(addr1).whitelistMint(
+      tier,
+      (await addr1.getAddress()),
+      5,
+      10,
+      OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
+    );
+
+    await expect(kipNode.connect(addr1).whitelistMint(
+      tier,
+      (await addr1.getAddress()),
+      6, // 5 + 6 = 11 > maxAmount for address1
+      10,
+      OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
+    )).to.be.revertedWith("Exceed allowance");
+  });
+
 });
