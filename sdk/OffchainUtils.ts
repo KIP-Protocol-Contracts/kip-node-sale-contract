@@ -1,31 +1,57 @@
-import { BaseContract } from 'ethers';
 import { KIPNode } from '../typechain-types/contracts/KIPNode';
-import { KIPNode__factory } from '../typechain-types';
+import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
+
+export interface WhitelistInfo {
+    address: string;
+    amount: string;
+}
 
 export class OffchainUtils {
-    private readonly _kipNode: KIPNode;
-    constructor(
-        private _kipNodeAddress: string,
-    ) {
-        this._kipNode = new KIPNode__factory().attach(_kipNodeAddress) as KIPNode;
+    public static generateMerkleTree(data: WhitelistInfo[]): StandardMerkleTree<[string, string]> {
+        const tree = StandardMerkleTree.of<[string, string]>(data.map(info => [info.address, info.amount]), ["address", "uint256"]);
+        return tree;
     }
 
-    private _generateMerkleRoot(data: string[]): string {
-        return data[0]
+    public static generateMerkleRoot(data: WhitelistInfo[]): string {
+        const tree = OffchainUtils.generateMerkleTree(data);
+        return tree.root;
     }
 
+    public static generateMerkleProof(data: WhitelistInfo, whiteListInfo: WhitelistInfo): string[] {
+        const tree = OffchainUtils.generateMerkleTree([data]);
+        for (const [i, v] of tree.entries()) {
+            if (v[0] === whiteListInfo.address) {
+                return tree.getProof(i);
+            }
+        }
+        
+        throw new Error("Address not found in whitelist");
+    }
+
+    public static getProofFromTree(tree: StandardMerkleTree<[string, string]>, address: string): string[] {
+        console.log(tree)
+        for (const [i, v] of tree.entries()) {
+            if (v[0] === address) {
+                return tree.getProof(i);
+            }
+        }
+        
+        throw new Error("Address not found in whitelist");
+    }
+    
     public generateWhitelistSale(
+        list: WhitelistInfo[],
         maxPerTier: number,
         totalMintedAmount: number,
         start: Date,
         end: Date,
     ): KIPNode.WhitelistSaleStruct {
         return {
-            merkleRoot: this._generateMerkleRoot([]),
+            merkleRoot: OffchainUtils.generateMerkleRoot(list),
             maxPerTier,
             totalMintedAmount,
-            start,
-            end,
+            start: Math.floor(start.getTime() / 1000),
+            end: Math.floor(end.getTime() / 1000),
         }
     }
 
@@ -42,8 +68,8 @@ export class OffchainUtils {
             maxPerTier,
             maxPerUser,
             totalMintedAmount,
-            start,
-            end,
+            start: Math.floor(start.getTime() / 1000),
+            end: Math.floor(end.getTime() / 1000),
         }
     }
 }

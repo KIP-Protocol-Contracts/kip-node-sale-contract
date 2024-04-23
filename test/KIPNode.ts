@@ -1,7 +1,10 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { KIPNode } from "../typechain-types";
 import { Signer } from "ethers";
+import { time } from "@nomicfoundation/hardhat-network-helpers";
+import { OffchainUtils } from "../sdk/OffchainUtils";
+import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
 
 describe("ERC721 behaviors", function () {
   let kipNode: KIPNode, paymentTokenMock, owner, addr1, addr2, addrs;
@@ -80,7 +83,7 @@ describe("Owner behaviors", function () {
     expect(await kipNode.KIPFundAddress()).to.equal("0x000000000000000000000000000000000000dEaD");
   });
 
-  it("Should fail if non-owner setPaymentToken", async function() {
+  it("Should fail if non-owner setPaymentToken", async function () {
     const newPaymentTokenMock = await ethers.deployContract("PaymentTokenMock");
     await newPaymentTokenMock.waitForDeployment();
     const newPaymentTokenMockAddress = await newPaymentTokenMock.getAddress();
@@ -88,18 +91,65 @@ describe("Owner behaviors", function () {
     await expect(kipNode.connect(addr1).setPaymentToken(newPaymentTokenMockAddress)).to.be.revertedWithCustomError(kipNode, "OwnableUnauthorizedAccount");
   });
 
-
-  it("Should fail if owner setPaymentToken with non ERC20 address", async function() {
-    await expect(kipNode.connect(owner).setPaymentToken(await owner.getAddress())).to.be.reverted
-  })
-
-  // TODO: temp skip
-  it.skip("Should success if owner setPaymentToken with ERC20 address", async function () {
+  it("Should success if owner setPaymentToken with ERC20 address", async function () {
     const newPaymentTokenMock = await ethers.deployContract("PaymentTokenMock");
     await newPaymentTokenMock.waitForDeployment();
     const newPaymentTokenMockAddress = await newPaymentTokenMock.getAddress();
 
     await kipNode.connect(owner).setPaymentToken(newPaymentTokenMockAddress);
     expect(await kipNode.paymentToken()).to.equal(newPaymentTokenMockAddress);
+  });
+});
+
+describe("Whitelist behaviors", function () {
+  let kipNode: KIPNode,
+  paymentTokenMock,
+  owner: Signer, 
+  addr1: Signer, 
+  addr2: Signer, 
+  addr3: Signer, 
+  addrs,
+  tier: number = 10,
+  merkleTree: StandardMerkleTree<[string, string]>;
+
+  beforeEach(async function () {
+    [owner, addr1, addr2, addr3, ...addrs] = await ethers.getSigners();
+
+    paymentTokenMock = await ethers.deployContract("PaymentTokenMock");
+    await paymentTokenMock.waitForDeployment();
+
+    kipNode = await ethers.deployContract("KIPNode", [
+      owner.getAddress(),
+      (await paymentTokenMock.getAddress()),
+    ]);
+    await paymentTokenMock.waitForDeployment();
+
+    const latestTimestamp = await time.latest()
+
+    merkleTree = OffchainUtils.generateMerkleTree(
+      [
+        { address: (await addr1.getAddress()), amount: "10" },
+        { address: (await addr2.getAddress()), amount: "10" },
+        { address: (await addr3.getAddress()), amount: "10" },
+      ]
+    );
+
+    await kipNode.connect(owner).setWhitelistSaleConfigs(tier, {
+      merkleRoot: merkleTree.root,
+      maxPerTier: 10,
+      totalMintedAmount: 0,
+      start: latestTimestamp,
+      end: latestTimestamp + 1000,
+    });
+  });
+
+  it("Should allow address in whitelist mint with correct amount", async function () {
+    await kipNode.connect(addr1).whitelistMint(
+      tier,
+      (await addr1.getAddress()),
+      10,
+      10,
+      OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
+    )
   });
 });
