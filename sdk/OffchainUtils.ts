@@ -29,7 +29,6 @@ export class OffchainUtils {
     }
 
     public static getProofFromTree(tree: StandardMerkleTree<[string, string]>, address: string): string[] {
-        console.log(tree)
         for (const [i, v] of tree.entries()) {
             if (v[0] === address) {
                 return tree.getProof(i);
