@@ -2154,8 +2154,7 @@ describe("With SDK", () => {
       ]);
     });
 
-    // Handle offchain
-    it.skip("Should fail if tier = 0", async function () {
+    it("Should fail if tier = 0", async function () {
       const latestTimestamp = await time.latest()
 
       merkleTree = OffchainUtils.generateMerkleTree(
@@ -2172,7 +2171,7 @@ describe("With SDK", () => {
         totalMintedAmount: 0,
         start: latestTimestamp,
         end: latestTimestamp + 1_000_000,
-      })).to.be.reverted;
+      })).to.be.revertedWithCustomError(kipNode, "InvalidConfig");
 
       expect(tier).to.not.equal(0);
     });
