@@ -7,9 +7,10 @@ import {
   Token20__factory,
 } from "../typechain-types";
 import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
-import { ZeroAddress, ZeroHash, getBytes, parseUnits } from "ethers";
+import { Signer, ZeroAddress, ZeroHash, getBytes, parseUnits } from "ethers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { time, takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
+import { OffchainUtils } from "../sdk/OffchainUtils";
 
 const EmptyPublicConfig: KIPNode.PublicSaleStruct = {
   price: BigInt(0),
@@ -2022,3 +2023,334 @@ describe("KIPNode Sale Contract Testing", () => {
     });
   });
 });
+
+describe("With SDK", () => {
+  describe("ERC721 behaviors", function () {
+    let kipNode: KIPNode, paymentTokenMock, owner, addr1, addr2, addrs;
+
+    beforeEach(async function () {
+      [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
+
+      const ERC20 = (await ethers.getContractFactory(
+        "Token20",
+        owner,
+      )) as Token20__factory;
+      paymentTokenMock = await ERC20.deploy("USD Tether", "USDT");
+
+      kipNode = await ethers.deployContract("KIPNode", [
+        owner.address,
+        (await paymentTokenMock.getAddress()),
+      ]);
+    });
+
+    it("Should ERC721-compliant 0x80ac58cd interface", async function () {
+      await expect(kipNode.supportsInterface("0x80ac58cd")).to.be.fulfilled;
+    });
+
+    it("Should return the token name", async function () {
+      expect(await kipNode.name()).to.equal("KIP License");
+    });
+
+    it("Should return the token symbol", async function () {
+      expect(await kipNode.symbol()).to.equal("KIPNODE");
+    });
+  });
+
+  describe("Owner behaviors", function () {
+    let kipNode: KIPNode, paymentTokenMock, owner: Signer, addr1: Signer, addr2, addrs;
+
+    beforeEach(async function () {
+      [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
+
+      const ERC20 = (await ethers.getContractFactory(
+        "Token20",
+        owner,
+      )) as Token20__factory;
+      paymentTokenMock = await ERC20.deploy("USD Tether", "USDT");
+
+      kipNode = await ethers.deployContract("KIPNode", [
+        owner.getAddress(),
+        (await paymentTokenMock.getAddress()),
+      ]);
+    });
+
+    it("Should support Ownable", async function () {
+      expect(kipNode.getFunction("owner()")).to.be.instanceOf(Function);
+      expect(kipNode.getFunction("transferOwnership(address)")).to.be.instanceOf(Function);
+    });
+
+    it("Should return the owner set in constructor", async function () {
+      expect(await kipNode.owner()).to.equal(await owner.getAddress());
+    });
+
+    it("Should fail if non-owner setBaseURI", async function () {
+      // Try to set base URI from addr1 (not owner)
+      await expect(kipNode.connect(addr1).setBaseURI("http://example.com")).to.be.revertedWithCustomError(kipNode, "OwnableUnauthorizedAccount");
+    });
+
+    it("Should success if owner setBaseURI", async function () {
+      // Set base URI from owner
+      await kipNode.connect(owner).setBaseURI("http://example.com");
+
+      // Check if base URI is set correctly
+      expect(await kipNode.baseURI()).to.equal("http://example.com");
+    });
+
+    it("Should fail if non-owner setKIPFundAddress", async function () {
+      await expect(kipNode.connect(addr1).setKIPFundAddress("0x000000000000000000000000000000000000dEaD")).to.be.revertedWithCustomError(kipNode, "OwnableUnauthorizedAccount");
+    });
+
+    it("Should success if owner setKIPFundAddress", async function () {
+      await kipNode.connect(owner).setKIPFundAddress("0x000000000000000000000000000000000000dEaD");
+
+      expect(await kipNode.KIPFundAddress()).to.equal("0x000000000000000000000000000000000000dEaD");
+    });
+
+    it("Should fail if non-owner setPaymentToken", async function () {
+      const ERC20 = (await ethers.getContractFactory(
+        "Token20",
+        owner,
+      )) as Token20__factory;
+      const newPaymentTokenMock = await ERC20.deploy("New Payment Token", "NEWPAYMENTOKEN");
+      const newPaymentTokenMockAddress = await newPaymentTokenMock.getAddress();
+      await expect(kipNode.connect(addr1).setPaymentToken(newPaymentTokenMockAddress)).to.be.revertedWithCustomError(kipNode, "OwnableUnauthorizedAccount");
+    });
+
+    it("Should success if owner setPaymentToken with ERC20 address", async function () {
+      const ERC20 = (await ethers.getContractFactory(
+        "Token20",
+        owner,
+      )) as Token20__factory;
+      const newPaymentTokenMock = await ERC20.deploy("New Payment Token", "NEWPAYMENTOKEN");
+      const newPaymentTokenMockAddress = await newPaymentTokenMock.getAddress();
+
+      await kipNode.connect(owner).setPaymentToken(newPaymentTokenMockAddress);
+      expect(await kipNode.paymentToken()).to.equal(newPaymentTokenMockAddress);
+    });
+  });
+
+  describe("Whitelist behaviors", function () {
+    let kipNode: KIPNode,
+      paymentTokenMock,
+      owner: Signer,
+      addr1: Signer,
+      addr2: Signer,
+      addr3: Signer,
+      addrs,
+      tier: number = 10,
+      merkleTree: StandardMerkleTree<[string, string]>;
+
+    beforeEach(async function () {
+      [owner, addr1, addr2, addr3, ...addrs] = await ethers.getSigners();
+      const ERC20 = (await ethers.getContractFactory(
+        "Token20",
+        owner,
+      )) as Token20__factory;
+      paymentTokenMock = await ERC20.deploy("USD Tether", "USDT");
+
+      kipNode = await ethers.deployContract("KIPNode", [
+        owner.getAddress(),
+        (await paymentTokenMock.getAddress()),
+      ]);
+    });
+
+    // Handle offchain
+    it.skip("Should fail if tier = 0", async function () {
+      const latestTimestamp = await time.latest()
+
+      merkleTree = OffchainUtils.generateMerkleTree(
+        [
+          { address: (await addr1.getAddress()), amount: "10" },
+          { address: (await addr2.getAddress()), amount: "10" },
+          { address: (await addr3.getAddress()), amount: "10" },
+        ]
+      );
+
+      await expect(kipNode.connect(owner).setWhitelistSaleConfigs(0, {
+        merkleRoot: merkleTree.root,
+        maxPerTier: 10,
+        totalMintedAmount: 0,
+        start: latestTimestamp,
+        end: latestTimestamp + 1_000_000,
+      })).to.be.reverted;
+
+      expect(tier).to.not.equal(0);
+    });
+
+    // Handle offchain
+    it.skip("Should fail if end lower than lastTimestamp", async function () {
+      const latestTimestamp = await time.latest()
+
+      merkleTree = OffchainUtils.generateMerkleTree(
+        [
+          { address: (await addr1.getAddress()), amount: "10" },
+          { address: (await addr2.getAddress()), amount: "10" },
+          { address: (await addr3.getAddress()), amount: "10" },
+        ]
+      );
+
+      const end = latestTimestamp - 1_000
+      await expect(kipNode.connect(owner).setWhitelistSaleConfigs(0, {
+        merkleRoot: merkleTree.root,
+        maxPerTier: 10,
+        totalMintedAmount: 0,
+        start: latestTimestamp,
+        end: end,
+      })).to.be.reverted;
+
+      expect(end).to.be.greaterThan(latestTimestamp);
+    });
+
+    it('Should allow address in whitelist mint with correct amount', async function () {
+      const latestTimestamp = await time.latest()
+
+      merkleTree = OffchainUtils.generateMerkleTree(
+        [
+          { address: (await addr1.getAddress()), amount: "10" },
+          { address: (await addr2.getAddress()), amount: "10" },
+          { address: (await addr3.getAddress()), amount: "10" },
+        ]
+      );
+
+      await kipNode.connect(owner).setWhitelistSaleConfigs(tier, {
+        merkleRoot: merkleTree.root,
+        maxPerTier: 10,
+        totalMintedAmount: 0,
+        start: latestTimestamp,
+        end: latestTimestamp + 1_000_000,
+      });
+
+      await kipNode.connect(addr1).whitelistMint(
+        tier,
+        (await addr1.getAddress()),
+        10,
+        10,
+        OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
+      )
+    });
+
+    it("Should fails if mint different tier", async function () {
+      const latestTimestamp = await time.latest();
+      merkleTree = OffchainUtils.generateMerkleTree(
+        [
+          { address: (await addr1.getAddress()), amount: "10" },
+          { address: (await addr2.getAddress()), amount: "10" },
+          { address: (await addr3.getAddress()), amount: "10" },
+        ]
+      );
+
+      await kipNode.connect(owner).setWhitelistSaleConfigs(tier, {
+        merkleRoot: merkleTree.root,
+        maxPerTier: 10,
+        totalMintedAmount: 0,
+        start: latestTimestamp,
+        end: latestTimestamp + 1_000_000,
+      });
+
+      const differentTier = tier + 1;
+
+      await expect(kipNode.connect(addr1).whitelistMint(
+        differentTier,
+        (await addr1.getAddress()),
+        10,
+        10,
+        OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
+      )).to.be.revertedWithCustomError(kipNode, "SaleEventNotExist");
+
+      expect(tier).not.equal(differentTier);
+    });
+
+    it("Should fails Invalid proof if sender not in whitelist", async function () {
+      const latestTimestamp = await time.latest();
+      merkleTree = OffchainUtils.generateMerkleTree(
+        [
+          { address: (await addr1.getAddress()), amount: "10" },
+          { address: (await addr2.getAddress()), amount: "10" },
+          { address: (await addr3.getAddress()), amount: "10" },
+        ]
+      );
+
+      await kipNode.connect(owner).setWhitelistSaleConfigs(tier, {
+        merkleRoot: merkleTree.root,
+        maxPerTier: 10,
+        totalMintedAmount: 0,
+        start: latestTimestamp,
+        end: latestTimestamp + 1_000_000,
+      });
+
+
+      await expect(kipNode.connect(owner).whitelistMint(
+        tier,
+        (await addr1.getAddress()),
+        10,
+        10,
+        OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
+      )).to.be.revertedWithCustomError(kipNode, "InvalidProof");
+    });
+
+    it("Should fails if minted amount exceed maxPerTier", async function () {
+      const latestTimestamp = await time.latest()
+
+      merkleTree = OffchainUtils.generateMerkleTree(
+        [
+          { address: (await addr1.getAddress()), amount: "10" },
+          { address: (await addr2.getAddress()), amount: "10" },
+          { address: (await addr3.getAddress()), amount: "10" },
+        ]
+      );
+
+      await kipNode.connect(owner).setWhitelistSaleConfigs(tier, {
+        merkleRoot: merkleTree.root,
+        maxPerTier: 10,
+        totalMintedAmount: 5, // 5 left
+        start: latestTimestamp,
+        end: latestTimestamp + 1_000_000,
+      });
+
+      await expect(kipNode.connect(addr1).whitelistMint(
+        tier,
+        (await addr1.getAddress()),
+        10,
+        10,
+        OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
+      )).to.be.revertedWithCustomError(kipNode, "ExceedAllowance");
+    });
+
+    it("Should fails if minted amount exceed maxAmount per sender", async function () {
+      const latestTimestamp = await time.latest()
+
+      merkleTree = OffchainUtils.generateMerkleTree(
+        [
+          { address: (await addr1.getAddress()), amount: "10" },
+          { address: (await addr2.getAddress()), amount: "10" },
+          { address: (await addr3.getAddress()), amount: "10" },
+        ]
+      );
+
+      await kipNode.connect(owner).setWhitelistSaleConfigs(tier, {
+        merkleRoot: merkleTree.root,
+        maxPerTier: 100,
+        totalMintedAmount: 0,
+        start: latestTimestamp,
+        end: latestTimestamp + 1_000_000,
+      });
+
+      await kipNode.connect(addr1).whitelistMint(
+        tier,
+        (await addr1.getAddress()),
+        5,
+        10,
+        OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
+      );
+
+      await expect(kipNode.connect(addr1).whitelistMint(
+        tier,
+        (await addr1.getAddress()),
+        6, // 5 + 6 = 11 > maxAmount for address1
+        10,
+        OffchainUtils.getProofFromTree(merkleTree, (await addr1.getAddress()))
+      )).to.be.revertedWithCustomError(kipNode, "ExceedAllowance");
+    });
+
+  });
+})
