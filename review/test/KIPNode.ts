@@ -29,6 +29,7 @@ const EmptyWhitelistConfig: KIPNode.WhitelistSaleStruct = {
 };
 
 const provider = ethers.provider;
+const days = 24 * 3600;
 
 const getProof = (tree: any, account: string): any => {
   for (const [i, v] of tree.entries()) {
@@ -58,16 +59,16 @@ describe("KIPNode Sale Contract Testing", () => {
     maxPerTier: 1250,
     maxPerUser: 1,
     totalMintedAmount: BigInt(0),
-    start: BigInt(currentTime + 3600),
-    end: BigInt(currentTime + 7 * 24 * 3600),
+    start: BigInt(currentTime + 7 * days),
+    end: BigInt(currentTime + 14 * days),
   };
   const publicSaleEvent2: KIPNode.PublicSaleStruct = {
     price: parseUnits("200", 6), //  200 USDT, decimals = 6 (Arbitrum)
     maxPerTier: 1250,
     maxPerUser: 2,
     totalMintedAmount: BigInt(0),
-    start: BigInt(currentTime + 3600),
-    end: BigInt(currentTime + 7 * 24 * 3600),
+    start: BigInt(currentTime + 9 * days),
+    end: BigInt(currentTime + 21 * days),
   };
 
   let whitelistSaleEvent1: KIPNode.WhitelistSaleStruct,
@@ -566,11 +567,11 @@ describe("KIPNode Sale Contract Testing", () => {
       const currentTime = Math.floor(Date.now() / 1000);
       const newConfig: KIPNode.PublicSaleStruct = {
         price: parseUnits("200", 6), //  200 USDT, decimals = 6 (Arbitrum)
-        maxPerTier: 1250,
-        maxPerUser: 2,
+        maxPerTier: 2,
+        maxPerUser: 1,
         totalMintedAmount: BigInt(0),
-        start: BigInt(currentTime + 3600),
-        end: BigInt(currentTime + 7 * 24 * 3600),
+        start: BigInt(currentTime + 7 * days),
+        end: BigInt(currentTime + 14 * days),
       };
 
       await expect(
@@ -635,11 +636,11 @@ describe("KIPNode Sale Contract Testing", () => {
 
       const newConfig: KIPNode.PublicSaleStruct = {
         price: parseUnits("300", 6), //  200 USDT, decimals = 6 (Arbitrum)
-        maxPerTier: 1250,
-        maxPerUser: 3,
+        maxPerTier: 3,
+        maxPerUser: 1,
         totalMintedAmount: BigInt(0),
-        start: BigInt(currentTime + 3600),
-        end: BigInt(currentTime + 7 * 24 * 3600),
+        start: BigInt(currentTime + 7 * days),
+        end: BigInt(currentTime + 14 * days),
       };
 
       await kip.connect(newOwner).setPublicSaleConfigs(tier, newConfig);
@@ -1087,8 +1088,7 @@ describe("KIPNode Sale Contract Testing", () => {
       const timestamp = (await provider.getBlock(block))?.timestamp as number;
       const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
 
-      //  take a snapshot before increasing block.timestamp
-      const snapshot = await takeSnapshot();
+      //  Adjust block.timestamp
       if (timestamp < start) await adjustTime(start);
 
       expect(await kip.balanceOf(accounts[10].address)).deep.equal(0);
@@ -1100,9 +1100,6 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(kip, `InvalidProof`);
 
       expect(await kip.balanceOf(accounts[10].address)).deep.equal(0);
-
-      //  set back to normal
-      await snapshot.restore();
     });
 
     it("Should revert when authorized user tries to mint License, but proof not valid - maxAmount incorrected", async () => {
@@ -1112,14 +1109,6 @@ describe("KIPNode Sale Contract Testing", () => {
       const maxAmount = BigInt(500);
       const merkleProof = getProof(treeEvent1, accounts[0].address);
 
-      const block = await provider.getBlockNumber();
-      const timestamp = (await provider.getBlock(block))?.timestamp as number;
-      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
-
-      //  take a snapshot before increasing block.timestamp
-      const snapshot = await takeSnapshot();
-      if (timestamp < start) await adjustTime(start);
-
       expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
 
       await expect(
@@ -1129,9 +1118,6 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(kip, `InvalidProof`);
 
       expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
-
-      //  set back to normal
-      await snapshot.restore();
     });
 
     it("Should revert when authorized user tries to mint License, but proof not valid - Proof generated for a different tier", async () => {
@@ -1141,14 +1127,6 @@ describe("KIPNode Sale Contract Testing", () => {
       const maxAmount = BigInt(150);
       const merkleProof = getProof(treeEvent2, accounts[0].address);
 
-      const block = await provider.getBlockNumber();
-      const timestamp = (await provider.getBlock(block))?.timestamp as number;
-      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
-
-      //  take a snapshot before increasing block.timestamp
-      const snapshot = await takeSnapshot();
-      if (timestamp < start) await adjustTime(start);
-
       expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
 
       await expect(
@@ -1158,9 +1136,6 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(kip, `InvalidProof`);
 
       expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
-
-      //  set back to normal
-      await snapshot.restore();
     });
 
     it("Should succeed when authorized user requests to mint Licenses - Partial mint", async () => {
@@ -1169,13 +1144,6 @@ describe("KIPNode Sale Contract Testing", () => {
       const amount = BigInt(50);
       const maxAmount = BigInt(150);
       const merkleProof = getProof(treeEvent1, accounts[0].address);
-
-      const block = await provider.getBlockNumber();
-      const timestamp = (await provider.getBlock(block))?.timestamp as number;
-      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
-
-      //  Adjust block.timestamp
-      if (timestamp < start) await adjustTime(start);
 
       expect(await kip.balanceOf(accounts[0].address)).deep.equal(0);
 
@@ -1222,13 +1190,6 @@ describe("KIPNode Sale Contract Testing", () => {
       const amount = BigInt(100);
       const maxAmount = BigInt(150);
       const merkleProof = getProof(treeEvent1, accounts[0].address);
-
-      const block = await provider.getBlockNumber();
-      const timestamp = (await provider.getBlock(block))?.timestamp as number;
-      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
-
-      //  Adjust block.timestamp
-      if (timestamp < start) await adjustTime(start);
 
       const balance = await kip.balanceOf(accounts[0].address);
 
@@ -1284,13 +1245,6 @@ describe("KIPNode Sale Contract Testing", () => {
       const maxAmount = BigInt(150);
       const merkleProof = getProof(treeEvent1, accounts[0].address);
 
-      const block = await provider.getBlockNumber();
-      const timestamp = (await provider.getBlock(block))?.timestamp as number;
-      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
-
-      //  adjust timestamp
-      if (timestamp < start) await adjustTime(start);
-
       expect(await kip.balanceOf(accounts[0].address)).deep.equal(maxAmount);
 
       await expect(
@@ -1314,13 +1268,6 @@ describe("KIPNode Sale Contract Testing", () => {
       const amount = BigInt(50);
       const maxAmount = BigInt(150);
       const merkleProof = getProof(treeEvent1, accounts[1].address);
-
-      const block = await provider.getBlockNumber();
-      const timestamp = (await provider.getBlock(block))?.timestamp as number;
-      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
-
-      //  Adjust block.timestamp
-      if (timestamp < start) await adjustTime(start);
 
       const totalMintedAmount = (await kip.whitelistSaleConfigs(tier))
         .totalMintedAmount;
@@ -1376,13 +1323,6 @@ describe("KIPNode Sale Contract Testing", () => {
       const maxAmount = BigInt(150);
       const merkleProof = getProof(treeEvent1, accounts[1].address);
 
-      const block = await provider.getBlockNumber();
-      const timestamp = (await provider.getBlock(block))?.timestamp as number;
-      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
-
-      //  adjust timestamp
-      if (timestamp < start) await adjustTime(start);
-
       const totalMintedAmount = (await kip.whitelistSaleConfigs(tier))
         .totalMintedAmount;
       const balance = await kip.balanceOf(accounts[1].address);
@@ -1408,13 +1348,6 @@ describe("KIPNode Sale Contract Testing", () => {
       const amount = BigInt(200);
       const maxAmount = BigInt(200);
       const merkleProof = getProof(treeEvent2, accounts[0].address);
-
-      const block = await provider.getBlockNumber();
-      const timestamp = (await provider.getBlock(block))?.timestamp as number;
-      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
-
-      //  Adjust block.timestamp
-      if (timestamp < start) await adjustTime(start);
 
       const balance = await kip.balanceOf(accounts[0].address);
 
@@ -1463,13 +1396,6 @@ describe("KIPNode Sale Contract Testing", () => {
       const amount = BigInt(50);
       const maxAmount = BigInt(200);
       const merkleProof = getProof(treeEvent2, accounts[2].address);
-
-      const block = await provider.getBlockNumber();
-      const timestamp = (await provider.getBlock(block))?.timestamp as number;
-      const start = Number((await kip.whitelistSaleConfigs(tier)).start) + 60;
-
-      //  Adjust block.timestamp
-      if (timestamp < start) await adjustTime(start);
 
       const totalMintedAmount = (await kip.whitelistSaleConfigs(tier))
         .totalMintedAmount;
@@ -1521,6 +1447,578 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(
         (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
       ).deep.equal(totalMintedAmount + amount);
+    });
+  });
+
+  describe("publicMint() functional testing", () => {
+    it("Should revert when user tries to mint the License, but tier = 0", async () => {
+      const tier = 0;
+      const to = accounts[6].address;
+      const amount = BigInt(1);
+      const code = "";
+
+      await usdt
+        .connect(accounts[6])
+        .mint(accounts[6].address, parseUnits("1000", 6));
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      await expect(
+        kip.connect(accounts[6]).publicMint(tier, to, amount, code),
+      ).to.be.revertedWithCustomError(kip, `InvalidRequest`);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+    });
+
+    it("Should revert when user tries to mint the License, but tier > MAX_TIER", async () => {
+      const tier = MAX_TIER + 1;
+      const to = accounts[6].address;
+      const amount = BigInt(1);
+      const code = "";
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      await expect(
+        kip.connect(accounts[6]).publicMint(tier, to, amount, code),
+      ).to.be.revertedWithCustomError(kip, `InvalidRequest`);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+    });
+
+    it("Should revert when user tries to mint the License, but amount = 0", async () => {
+      const tier = 1;
+      const to = accounts[6].address;
+      const amount = BigInt(0);
+      const code = "";
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      await expect(
+        kip.connect(accounts[6]).publicMint(tier, to, amount, code),
+      ).to.be.revertedWithCustomError(kip, `InvalidRequest`);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+    });
+
+    it("Should revert when user tries to mint the License, but receiver = 0x00", async () => {
+      const tier = 1;
+      const to = AddressZero;
+      const amount = BigInt(1);
+      const code = "";
+
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      await expect(
+        kip.connect(accounts[6]).publicMint(tier, to, amount, code),
+      ).to.be.revertedWithCustomError(kip, `InvalidRequest`);
+
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+    });
+
+    it("Should revert when user tries to mint the License, but public sale not yet started", async () => {
+      const tier = 1;
+      const to = accounts[6].address;
+      const amount = BigInt(1);
+      const code = "";
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      await expect(
+        kip.connect(accounts[6]).publicMint(tier, to, amount, code),
+      ).to.be.revertedWithCustomError(kip, `SaleEventNotExist`);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+    });
+
+    it("Should revert when user tries to mint the License, but public sale already ended", async () => {
+      const tier = 1;
+      const to = accounts[6].address;
+      const amount = BigInt(1);
+      const code = "";
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const expiry = Number((await kip.publicSaleConfigs(tier)).end) + 60;
+
+      //  take a snapshot before increasing block.timestamp
+      const snapshot = await takeSnapshot();
+      if (timestamp < expiry) await adjustTime(expiry);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      await expect(
+        kip.connect(accounts[6]).publicMint(tier, to, amount, code),
+      ).to.be.revertedWithCustomError(kip, `SaleEventNotExist`);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      //  set back to normal
+      await snapshot.restore();
+    });
+
+    it("Should revert when user tries to mint the License, but public sale not configured", async () => {
+      const tier = 3;
+      const to = accounts[6].address;
+      const amount = BigInt(1);
+      const code = "";
+
+      //  public sale event (tier = 3) not configured
+      {
+        let { price, maxPerTier, maxPerUser, totalMintedAmount, start, end } =
+          await kip.publicSaleConfigs(tier);
+        let resultObject: KIPNode.PublicSaleStruct = {
+          price,
+          maxPerTier,
+          maxPerUser,
+          totalMintedAmount,
+          start,
+          end,
+        };
+        expect(resultObject).to.deep.equal(EmptyPublicConfig);
+      }
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      await expect(
+        kip.connect(accounts[6]).publicMint(tier, to, amount, code),
+      ).to.be.revertedWithCustomError(kip, `SaleEventNotExist`);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+    });
+
+    it("Should revert when user tries to mint the License, but price is set zero", async () => {
+      const tier = 1;
+      const to = accounts[6].address;
+      const amount = BigInt(1);
+      const code = "";
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const start = Number((await kip.publicSaleConfigs(tier)).start) + 60;
+
+      //  take a snapshot before increasing block.timestamp
+      const snapshot = await takeSnapshot();
+      if (timestamp < start) await adjustTime(start);
+
+      //  set price = 0
+      const currentTime = Math.floor(Date.now() / 1000);
+      const newConfig: KIPNode.PublicSaleStruct = {
+        price: BigInt(0),
+        maxPerTier: 2,
+        maxPerUser: 1,
+        totalMintedAmount: BigInt(0),
+        start: BigInt(currentTime + 7 * days),
+        end: BigInt(currentTime + 14 * days),
+      };
+      await kip.connect(owner).setPublicSaleConfigs(tier, newConfig);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      await expect(
+        kip.connect(accounts[6]).publicMint(tier, to, amount, code),
+      ).to.be.revertedWithCustomError(kip, `PriceNotConfigured`);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      //  set back to normal
+      await snapshot.restore();
+    });
+
+    it("Should revert when user tries to mint the License, but not approve allowance", async () => {
+      const tier = 1;
+      const to = accounts[6].address;
+      const amount = BigInt(1);
+      const code = "";
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const start = Number((await kip.publicSaleConfigs(tier)).start) + 60;
+
+      //  adjust block.timestamp
+      if (timestamp < start) await adjustTime(start);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      await expect(
+        kip.connect(accounts[6]).publicMint(tier, to, amount, code),
+      ).to.be.revertedWithCustomError(usdt, `ERC20InsufficientAllowance`);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+    });
+
+    it("Should revert when user tries to mint the License, but insufficient balance", async () => {
+      const tier = 1;
+      const to = accounts[7].address;
+      const amount = BigInt(1);
+      const code = "";
+
+      await usdt
+        .connect(accounts[7])
+        .approve(kip.getAddress(), parseUnits("10000", 6));
+
+      expect(await kip.balanceOf(accounts[7].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      await expect(
+        kip.connect(accounts[7]).publicMint(tier, to, amount, code),
+      ).to.be.revertedWithCustomError(usdt, `ERC20InsufficientBalance`);
+
+      expect(await kip.balanceOf(accounts[7].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+    });
+
+    it("Should succeed when user mints the License - 1st User - Public Sale Event", async () => {
+      const tier = 1;
+      const to = accounts[6].address;
+      const amount = BigInt(1);
+      const code = "";
+      const { price } = await kip.publicSaleConfigs(tier);
+
+      await usdt
+        .connect(accounts[6])
+        .approve(kip.getAddress(), parseUnits("10000", 6));
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      const tx = kip.connect(accounts[6]).publicMint(tier, to, amount, code);
+      await expect(tx).to.changeTokenBalances(
+        usdt,
+        [accounts[6].address, KIPFundAddress],
+        [-price, price],
+      );
+      await expect(tx)
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[6].address, //  sender
+          accounts[6].address, //  receiver
+          tier,
+          451, // tokenId
+          price,
+          false,
+          code,
+        )
+        .to.emit(kip, "MintCountUpdated")
+        .withArgs(accounts[6].address, tier, false, amount, amount);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(1);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        1,
+      );
+    });
+
+    it("Should revert when user tries to mint the License, but exceed allowance - Max Per User", async () => {
+      const tier = 1;
+      const to = accounts[6].address;
+      const amount = BigInt(1);
+      const code = "";
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(1);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        1,
+      );
+
+      await expect(
+        kip.connect(accounts[6]).publicMint(tier, to, amount, code),
+      ).to.be.revertedWithCustomError(kip, `ExceedAllowance`);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(1);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        1,
+      );
+    });
+
+    it("Should succeed when user mints the License - 2nd User - Public Sale Event", async () => {
+      const tier = 1;
+      const to = accounts[7].address;
+      const amount = BigInt(1);
+      const code = "";
+      const { price } = await kip.publicSaleConfigs(tier);
+
+      await usdt
+        .connect(accounts[7])
+        .mint(accounts[7].address, parseUnits("10000", 6));
+
+      await usdt
+        .connect(accounts[7])
+        .approve(kip.getAddress(), parseUnits("10000", 6));
+
+      const totalMintedAmount = (await kip.publicSaleConfigs(tier))
+        .totalMintedAmount;
+      expect(await kip.balanceOf(accounts[7].address)).deep.equal(0);
+
+      const tx = kip.connect(accounts[7]).publicMint(tier, to, amount, code);
+      await expect(tx).to.changeTokenBalances(
+        usdt,
+        [accounts[7].address, KIPFundAddress],
+        [-price, price],
+      );
+      await expect(tx)
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[7].address, //  sender
+          accounts[7].address, //  receiver
+          tier,
+          452, // tokenId
+          price,
+          false,
+          code,
+        )
+        .to.emit(kip, "MintCountUpdated")
+        .withArgs(
+          accounts[7].address,
+          tier,
+          false,
+          amount,
+          totalMintedAmount + amount,
+        );
+
+      expect(await kip.balanceOf(accounts[7].address)).deep.equal(amount);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        totalMintedAmount + amount,
+      );
+    });
+
+    it("Should succeed when user mints the License - 3rd User mints to 1st User - Public Sale Event", async () => {
+      const tier = 1;
+      const to = accounts[6].address;
+      const amount = BigInt(1);
+      const code = "";
+      const { price } = await kip.publicSaleConfigs(tier);
+
+      await usdt
+        .connect(accounts[8])
+        .mint(accounts[8].address, parseUnits("10000", 6));
+
+      await usdt
+        .connect(accounts[8])
+        .approve(kip.getAddress(), parseUnits("10000", 6));
+
+      const totalMintedAmount = (await kip.publicSaleConfigs(tier))
+        .totalMintedAmount;
+      const balanceFirstUser = await kip.balanceOf(accounts[6].address);
+      expect(await kip.balanceOf(accounts[8].address)).deep.equal(0);
+      expect(balanceFirstUser).deep.equal(1);
+
+      const tx = kip.connect(accounts[8]).publicMint(tier, to, amount, code);
+      await expect(tx).to.changeTokenBalances(
+        usdt,
+        [accounts[8].address, KIPFundAddress],
+        [-price, price],
+      );
+      await expect(tx)
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[8].address, //  sender
+          accounts[6].address, //  receiver
+          tier,
+          453, // tokenId
+          price,
+          false,
+          code,
+        )
+        .to.emit(kip, "MintCountUpdated")
+        .withArgs(
+          accounts[8].address,
+          tier,
+          false,
+          amount,
+          totalMintedAmount + amount,
+        );
+
+      expect(await kip.balanceOf(accounts[8].address)).deep.equal(0);
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(
+        balanceFirstUser + amount,
+      );
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        totalMintedAmount + amount,
+      );
+    });
+
+    it("Should revert when user tries to mint the License, but exceed allowance - Max Per Tier", async () => {
+      const tier = 1;
+      const to = accounts[9].address;
+      const amount = BigInt(1);
+      const code = "";
+
+      await usdt
+        .connect(accounts[9])
+        .mint(accounts[9].address, parseUnits("10000", 6));
+      await usdt
+        .connect(accounts[9])
+        .approve(kip.getAddress(), parseUnits("10000", 6));
+
+      const { maxPerTier } = await kip.publicSaleConfigs(tier);
+      const totalMintedAmount = (await kip.publicSaleConfigs(tier))
+        .totalMintedAmount;
+      expect(await kip.balanceOf(accounts[9].address)).deep.equal(0);
+      expect(totalMintedAmount).deep.equal(maxPerTier);
+
+      await expect(
+        kip.connect(accounts[9]).publicMint(tier, to, amount, code),
+      ).to.be.revertedWithCustomError(kip, `ExceedAllowance`);
+
+      expect(await kip.balanceOf(accounts[9].address)).deep.equal(0);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        totalMintedAmount,
+      );
+    });
+
+    it("Should succeed when user mints the License - 1st User - Second Public Sale Event", async () => {
+      const tier = 2;
+      const to = accounts[6].address;
+      const amount = BigInt(1);
+      const code = "";
+      const { price } = await kip.publicSaleConfigs(tier);
+
+      //  Public Sale Event 1: account[6] reached max allowance (maxPerUser)
+      const balance = await kip.balanceOf(accounts[6].address);
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        0,
+      );
+
+      const block = await provider.getBlockNumber();
+      const timestamp = (await provider.getBlock(block))?.timestamp as number;
+      const start = Number((await kip.publicSaleConfigs(tier)).start) + 60;
+
+      //  adjust block.timestamp
+      if (timestamp < start) await adjustTime(start);
+
+      const tx = kip.connect(accounts[6]).publicMint(tier, to, amount, code);
+      await expect(tx).to.changeTokenBalances(
+        usdt,
+        [accounts[6].address, KIPFundAddress],
+        [-price, price],
+      );
+      await expect(tx)
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[6].address, //  sender
+          accounts[6].address, //  receiver
+          tier,
+          454, // tokenId
+          price,
+          false,
+          code,
+        )
+        .to.emit(kip, "MintCountUpdated")
+        .withArgs(accounts[6].address, tier, false, amount, amount);
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(
+        balance + amount,
+      );
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        amount,
+      );
+    });
+
+    it("Should succeed when user mints the License - 1st User - Second Public Sale Event", async () => {
+      const tier = 2;
+      const to = accounts[6].address;
+      const amount = BigInt(1);
+      const code = "";
+      const { price } = await kip.publicSaleConfigs(tier);
+
+      //  Public Sale Event 1: account[6] reached max allowance (maxPerUser)
+      //  Public Sale Event 2: maxPerUser = 2
+      const balance = await kip.balanceOf(accounts[6].address);
+      const mintedPerTier = await kip.publicUserMinted(
+        tier,
+        accounts[6].address,
+      );
+      const totalMintedAmount = (await kip.publicSaleConfigs(tier))
+        .totalMintedAmount;
+
+      const tx = kip.connect(accounts[6]).publicMint(tier, to, amount, code);
+      await expect(tx).to.changeTokenBalances(
+        usdt,
+        [accounts[6].address, KIPFundAddress],
+        [-price, price],
+      );
+      await expect(tx)
+        .to.emit(kip, "TokenMinted")
+        .withArgs(
+          accounts[6].address, //  sender
+          accounts[6].address, //  receiver
+          tier,
+          455, // tokenId
+          price,
+          false,
+          code,
+        )
+        .to.emit(kip, "MintCountUpdated")
+        .withArgs(
+          accounts[6].address, //  sender
+          tier,
+          false,
+          mintedPerTier + amount, // minted amount (user)
+          totalMintedAmount + amount, //  total minted amount (tier)
+        );
+
+      expect(await kip.balanceOf(accounts[6].address)).deep.equal(
+        balance + amount,
+      );
+      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+        totalMintedAmount + amount,
+      );
     });
   });
 });
