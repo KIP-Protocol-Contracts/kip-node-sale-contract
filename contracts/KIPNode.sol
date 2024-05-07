@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 error InvalidRequest();
 error SaleEventNotExist(uint256 start, uint256 end);
 error PriceNotConfigured();
+error setPriceZero();
 error ExceedAllowance();
 error InvalidProof();
 error InvalidURI();
@@ -52,6 +53,10 @@ contract KIPNode is ERC721, Ownable {
     mapping(uint256 => PublicSale) public publicSaleConfigs;
     mapping(uint256 => WhitelistSale) public whitelistSaleConfigs;
 
+    //  Mappings to record total minted Licenses per `tier`
+    mapping(uint256 => uint64) public whitelistTotalMinted;
+    mapping(uint256 => uint64) public publicTotalMinted;
+
     //  Mappings to record total minted Licenses per `buyer` (by tier)
     mapping(uint256 => mapping(address => uint256)) public whitelistUserMinted;
     mapping(uint256 => mapping(address => uint256)) public publicUserMinted;
@@ -61,6 +66,28 @@ contract KIPNode is ERC721, Ownable {
 
     //  Store Base URI of the License NFT contract
     string public baseURI;
+
+    event TransferEnabledUpdated(
+        address indexed sender,
+        bool status
+    );
+
+    event WhitelistSaleConfigUpdated(
+        address indexed sender,
+        uint256 tier,
+        WhitelistSale config
+    );
+
+    event FundReceiverUpdated(
+        address indexed sender,
+        address receiver
+    );
+
+    event PublicSaleConfigUpdated(
+        address indexed sender,
+        uint256 tier,
+        PublicSale config
+    );
 
     event TokenMinted(
         address indexed sender,
@@ -117,11 +144,11 @@ contract KIPNode is ERC721, Ownable {
         if (config.price == 0) revert PriceNotConfigured();
         if (
             publicUserMinted[tier][sender] + amount > config.maxPerUser ||
-            config.totalMintedAmount + amount > config.maxPerTier
+            publicTotalMinted[tier] + amount > config.maxPerTier
         ) revert ExceedAllowance();
 
         //  Update state storage to avoid re-entrancy attack
-        publicSaleConfigs[tier].totalMintedAmount += uint64(amount); //  overflow is guaranteed by checking above
+        publicTotalMinted[tier] += uint64(amount); //  overflow is guaranteed by checking above
         publicUserMinted[tier][sender] += amount;
 
         //  Payment
@@ -148,7 +175,7 @@ contract KIPNode is ERC721, Ownable {
             tier,
             false,
             publicUserMinted[tier][sender],
-            publicSaleConfigs[tier].totalMintedAmount
+            publicTotalMinted[tier]
         );
     }
 
@@ -183,7 +210,7 @@ contract KIPNode is ERC721, Ownable {
             revert SaleEventNotExist(config.start, config.end);
         if (
             whitelistUserMinted[tier][sender] + amount > maxAmount ||
-            config.totalMintedAmount + amount > config.maxPerTier
+            whitelistTotalMinted[tier] + amount > config.maxPerTier
         ) revert ExceedAllowance();
         if (!_validateProof(tier, sender, maxAmount, merkleProof))
             revert InvalidProof();
@@ -191,7 +218,7 @@ contract KIPNode is ERC721, Ownable {
         //  Update state storage to avoid re-entrancy attack
         //  overflow is guaranteed by checking above
         whitelistUserMinted[tier][sender] += amount;
-        whitelistSaleConfigs[tier].totalMintedAmount += uint64(amount);
+        whitelistTotalMinted[tier] += uint64(amount);
 
         //  And finally mint the License NFts
         for (uint256 i = 1; i <= amount; i++) {
@@ -205,7 +232,7 @@ contract KIPNode is ERC721, Ownable {
             tier,
             true,
             whitelistUserMinted[tier][sender],
-            whitelistSaleConfigs[tier].totalMintedAmount
+            whitelistTotalMinted[tier]
         );
     }
 
@@ -241,14 +268,21 @@ contract KIPNode is ERC721, Ownable {
     */
     function setPublicSaleConfigs(
         uint256 tier,
-        PublicSale calldata settings
+        PublicSale memory settings
     ) external onlyOwner {
         //  Note: Due to business logic, smart contract wouldn't validate the detail settings (i.e. start/end/price)
         //  In fact, the validation must be done by off-chain mechanism,
         //  and the smart contract allow `overwrite`
         if (tier == 0 || tier > MAX_TIER) revert InvalidConfig(1, MAX_TIER);
+        if (settings.price == 0) revert setPriceZero();
 
         publicSaleConfigs[tier] = settings;
+
+        emit PublicSaleConfigUpdated(
+            _msgSender(),
+            tier,
+            settings
+        );
     }
 
     /** 
@@ -267,7 +301,7 @@ contract KIPNode is ERC721, Ownable {
     */
     function setWhitelistSaleConfigs(
         uint256 tier,
-        WhitelistSale calldata settings
+        WhitelistSale memory settings
     ) external onlyOwner {
         //  Note: Due to business logic, smart contract wouldn't validate the detail settings (i.e. start/end/merkleRoot)
         //  In fact, the validation must be done by off-chain mechanism,
@@ -275,6 +309,12 @@ contract KIPNode is ERC721, Ownable {
         if (tier == 0 || tier > MAX_TIER) revert InvalidConfig(1, MAX_TIER);
 
         whitelistSaleConfigs[tier] = settings;
+
+        emit WhitelistSaleConfigUpdated(
+            _msgSender(),
+            tier,
+            settings
+        );
     }
 
     /** 
@@ -287,6 +327,11 @@ contract KIPNode is ERC721, Ownable {
     */
     function setTransferEnabled(bool newState) external onlyOwner {
         transferEnabled = newState;
+
+        emit TransferEnabledUpdated(
+            _msgSender(),
+            newState
+        );
     }
 
     /** @notice Update the new address of KIP Protocol Treasury
@@ -301,6 +346,11 @@ contract KIPNode is ERC721, Ownable {
         if (newAddress == address(0)) revert SetAddressZero();
 
         KIPFundAddress = newAddress;
+
+        emit FundReceiverUpdated(
+            _msgSender(),
+            newAddress
+        );
     }
 
     /** @notice Set new Payment Token
@@ -333,7 +383,7 @@ contract KIPNode is ERC721, Ownable {
         address to,
         uint256 maxAmount,
         bytes32[] calldata merkleProof
-    ) private view returns (bool) {
+    ) public view returns (bool) {
         bytes32 leaf = keccak256(
             bytes.concat(keccak256(abi.encode(to, maxAmount)))
         );
