@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 error InvalidRequest();
 error SaleEventNotExist(uint256 start, uint256 end);
 error PriceNotConfigured();
-error setPriceZero();
+//  error setPriceZero();
 error ExceedAllowance();
 error InvalidProof();
 error InvalidURI();
@@ -274,7 +274,7 @@ contract KIPNode is ERC721, Ownable {
         //  In fact, the validation must be done by off-chain mechanism,
         //  and the smart contract allow `overwrite`
         if (tier == 0 || tier > MAX_TIER) revert InvalidConfig(1, MAX_TIER);
-        if (settings.price == 0) revert setPriceZero();
+        //  if (settings.price == 0) revert setPriceZero();
 
         publicSaleConfigs[tier] = settings;
 
