@@ -1181,7 +1181,7 @@ describe("KIPNode Sale Contract Testing", () => {
         await kip.whitelistUserMinted(tier, accounts[0].address),
       ).deep.equal(amount);
       expect(
-        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+        (await kip.whitelistTotalMinted(tier)),
       ).deep.equal(amount);
     });
 
@@ -1235,7 +1235,7 @@ describe("KIPNode Sale Contract Testing", () => {
         await kip.whitelistUserMinted(tier, accounts[0].address),
       ).deep.equal(balance + amount);
       expect(
-        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+        (await kip.whitelistTotalMinted(tier)),
       ).deep.equal(balance + amount);
     });
 
@@ -1259,7 +1259,7 @@ describe("KIPNode Sale Contract Testing", () => {
         await kip.whitelistUserMinted(tier, accounts[0].address),
       ).deep.equal(maxAmount);
       expect(
-        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+        (await kip.whitelistTotalMinted(tier)),
       ).deep.equal(maxAmount);
     });
 
@@ -1270,8 +1270,7 @@ describe("KIPNode Sale Contract Testing", () => {
       const maxAmount = BigInt(150);
       const merkleProof = getProof(treeEvent1, accounts[1].address);
 
-      const totalMintedAmount = (await kip.whitelistSaleConfigs(tier))
-        .totalMintedAmount;
+      const totalMintedAmount = await kip.whitelistTotalMinted(tier);
       expect(await kip.balanceOf(accounts[1].address)).deep.equal(0);
 
       await expect(
@@ -1313,7 +1312,7 @@ describe("KIPNode Sale Contract Testing", () => {
         await kip.whitelistUserMinted(tier, accounts[1].address),
       ).deep.equal(amount);
       expect(
-        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+        (await kip.whitelistTotalMinted(tier)),
       ).deep.equal(totalMintedAmount + amount);
     });
 
@@ -1324,8 +1323,7 @@ describe("KIPNode Sale Contract Testing", () => {
       const maxAmount = BigInt(150);
       const merkleProof = getProof(treeEvent1, accounts[1].address);
 
-      const totalMintedAmount = (await kip.whitelistSaleConfigs(tier))
-        .totalMintedAmount;
+      const totalMintedAmount = (await kip.whitelistTotalMinted(tier));
       const balance = await kip.balanceOf(accounts[1].address);
 
       await expect(
@@ -1339,7 +1337,7 @@ describe("KIPNode Sale Contract Testing", () => {
         await kip.whitelistUserMinted(tier, accounts[1].address),
       ).deep.equal(balance);
       expect(
-        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+        (await kip.whitelistTotalMinted(tier)),
       ).deep.equal(totalMintedAmount);
     });
 
@@ -1387,7 +1385,7 @@ describe("KIPNode Sale Contract Testing", () => {
         await kip.whitelistUserMinted(tier, accounts[0].address),
       ).deep.equal(amount);
       expect(
-        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+        (await kip.whitelistTotalMinted(tier)),
       ).deep.equal(amount);
     });
 
@@ -1398,8 +1396,7 @@ describe("KIPNode Sale Contract Testing", () => {
       const maxAmount = BigInt(200);
       const merkleProof = getProof(treeEvent2, accounts[2].address);
 
-      const totalMintedAmount = (await kip.whitelistSaleConfigs(tier))
-        .totalMintedAmount;
+      const totalMintedAmount = (await kip.whitelistTotalMinted(tier));
       expect(await kip.balanceOf(accounts[2].address)).deep.equal(0);
       expect(await kip.balanceOf(accounts[5].address)).deep.equal(0);
 
@@ -1446,7 +1443,7 @@ describe("KIPNode Sale Contract Testing", () => {
         await kip.whitelistUserMinted(tier, accounts[5].address),
       ).deep.equal(0);
       expect(
-        (await kip.whitelistSaleConfigs(tier)).totalMintedAmount,
+        (await kip.whitelistTotalMinted(tier)),
       ).deep.equal(totalMintedAmount + amount);
     });
   });
@@ -1463,7 +1460,7 @@ describe("KIPNode Sale Contract Testing", () => {
         .mint(accounts[6].address, parseUnits("1000", 6));
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1472,7 +1469,7 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(kip, `InvalidRequest`);
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
     });
@@ -1484,7 +1481,7 @@ describe("KIPNode Sale Contract Testing", () => {
       const code = "";
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1493,7 +1490,7 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(kip, `InvalidRequest`);
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
     });
@@ -1505,7 +1502,7 @@ describe("KIPNode Sale Contract Testing", () => {
       const code = "";
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1514,7 +1511,7 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(kip, `InvalidRequest`);
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
     });
@@ -1525,7 +1522,7 @@ describe("KIPNode Sale Contract Testing", () => {
       const amount = BigInt(1);
       const code = "";
 
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1533,7 +1530,7 @@ describe("KIPNode Sale Contract Testing", () => {
         kip.connect(accounts[6]).publicMint(tier, to, amount, code),
       ).to.be.revertedWithCustomError(kip, `InvalidRequest`);
 
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
     });
@@ -1545,7 +1542,7 @@ describe("KIPNode Sale Contract Testing", () => {
       const code = "";
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1554,7 +1551,7 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(kip, `SaleEventNotExist`);
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
     });
@@ -1574,7 +1571,7 @@ describe("KIPNode Sale Contract Testing", () => {
       if (timestamp < expiry) await adjustTime(expiry);
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1583,7 +1580,7 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(kip, `SaleEventNotExist`);
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1613,7 +1610,7 @@ describe("KIPNode Sale Contract Testing", () => {
       }
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1622,7 +1619,7 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(kip, `SaleEventNotExist`);
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
     });
@@ -1654,7 +1651,7 @@ describe("KIPNode Sale Contract Testing", () => {
       await kip.connect(owner).setPublicSaleConfigs(tier, newConfig);
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1663,7 +1660,7 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(kip, `PriceNotConfigured`);
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1685,7 +1682,7 @@ describe("KIPNode Sale Contract Testing", () => {
       if (timestamp < start) await adjustTime(start);
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1694,7 +1691,7 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(usdt, `ERC20InsufficientAllowance`);
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
     });
@@ -1710,7 +1707,7 @@ describe("KIPNode Sale Contract Testing", () => {
         .approve(kip.getAddress(), parseUnits("10000", 6));
 
       expect(await kip.balanceOf(accounts[7].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1719,7 +1716,7 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(usdt, `ERC20InsufficientBalance`);
 
       expect(await kip.balanceOf(accounts[7].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
     });
@@ -1736,7 +1733,7 @@ describe("KIPNode Sale Contract Testing", () => {
         .approve(kip.getAddress(), parseUnits("10000", 6));
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1761,7 +1758,7 @@ describe("KIPNode Sale Contract Testing", () => {
         .withArgs(accounts[6].address, tier, false, amount, amount);
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(1);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         1,
       );
     });
@@ -1773,7 +1770,7 @@ describe("KIPNode Sale Contract Testing", () => {
       const code = "";
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(1);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         1,
       );
 
@@ -1782,7 +1779,7 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(kip, `ExceedAllowance`);
 
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(1);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         1,
       );
     });
@@ -1802,8 +1799,7 @@ describe("KIPNode Sale Contract Testing", () => {
         .connect(accounts[7])
         .approve(kip.getAddress(), parseUnits("10000", 6));
 
-      const totalMintedAmount = (await kip.publicSaleConfigs(tier))
-        .totalMintedAmount;
+      const totalMintedAmount = await kip.publicTotalMinted(tier);
       expect(await kip.balanceOf(accounts[7].address)).deep.equal(0);
 
       const tx = kip.connect(accounts[7]).publicMint(tier, to, amount, code);
@@ -1833,7 +1829,7 @@ describe("KIPNode Sale Contract Testing", () => {
         );
 
       expect(await kip.balanceOf(accounts[7].address)).deep.equal(amount);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         totalMintedAmount + amount,
       );
     });
@@ -1853,8 +1849,7 @@ describe("KIPNode Sale Contract Testing", () => {
         .connect(accounts[8])
         .approve(kip.getAddress(), parseUnits("10000", 6));
 
-      const totalMintedAmount = (await kip.publicSaleConfigs(tier))
-        .totalMintedAmount;
+      const totalMintedAmount = (await kip.publicTotalMinted(tier));
       const balanceFirstUser = await kip.balanceOf(accounts[6].address);
       expect(await kip.balanceOf(accounts[8].address)).deep.equal(0);
       expect(balanceFirstUser).deep.equal(1);
@@ -1889,7 +1884,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(
         balanceFirstUser + amount,
       );
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         totalMintedAmount + amount,
       );
     });
@@ -1908,8 +1903,7 @@ describe("KIPNode Sale Contract Testing", () => {
         .approve(kip.getAddress(), parseUnits("10000", 6));
 
       const { maxPerTier } = await kip.publicSaleConfigs(tier);
-      const totalMintedAmount = (await kip.publicSaleConfigs(tier))
-        .totalMintedAmount;
+      const totalMintedAmount = await kip.publicTotalMinted(tier);
       expect(await kip.balanceOf(accounts[9].address)).deep.equal(0);
       expect(totalMintedAmount).deep.equal(maxPerTier);
 
@@ -1918,7 +1912,7 @@ describe("KIPNode Sale Contract Testing", () => {
       ).to.be.revertedWithCustomError(kip, `ExceedAllowance`);
 
       expect(await kip.balanceOf(accounts[9].address)).deep.equal(0);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         totalMintedAmount,
       );
     });
@@ -1932,7 +1926,7 @@ describe("KIPNode Sale Contract Testing", () => {
 
       //  Public Sale Event 1: account[6] reached max allowance (maxPerUser)
       const balance = await kip.balanceOf(accounts[6].address);
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         0,
       );
 
@@ -1966,7 +1960,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(
         balance + amount,
       );
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         amount,
       );
     });
@@ -1985,8 +1979,7 @@ describe("KIPNode Sale Contract Testing", () => {
         tier,
         accounts[6].address,
       );
-      const totalMintedAmount = (await kip.publicSaleConfigs(tier))
-        .totalMintedAmount;
+      const totalMintedAmount = (await kip.publicTotalMinted(tier));
 
       const tx = kip.connect(accounts[6]).publicMint(tier, to, amount, code);
       await expect(tx).to.changeTokenBalances(
@@ -2017,7 +2010,7 @@ describe("KIPNode Sale Contract Testing", () => {
       expect(await kip.balanceOf(accounts[6].address)).deep.equal(
         balance + amount,
       );
-      expect((await kip.publicSaleConfigs(tier)).totalMintedAmount).deep.equal(
+      expect(await kip.publicTotalMinted(tier)).deep.equal(
         totalMintedAmount + amount,
       );
     });
@@ -2300,7 +2293,7 @@ describe("With SDK", () => {
 
       await kipNode.connect(owner).setWhitelistSaleConfigs(tier, {
         merkleRoot: merkleTree.root,
-        maxPerTier: 10,
+        maxPerTier: 9,
         totalMintedAmount: 5, // 5 left
         start: latestTimestamp,
         end: latestTimestamp + 1_000_000,
