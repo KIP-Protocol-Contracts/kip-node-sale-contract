@@ -47,7 +47,7 @@ contract KIPNode is ERC721, Ownable {
     address public KIPFundAddress = 0x6E3bbb13330102989Ac110163e4C649d0bB88777;
 
     // Set max number of tiers for the sale event
-    uint256 public constant MAX_TIER = 38;
+    uint256 public constant MAX_TIER = 99;
 
     //  Mappings to store Sale Configurations (Public Sale and Whitelist Sale)
     mapping(uint256 => PublicSale) public publicSaleConfigs;
