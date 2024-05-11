@@ -51,7 +51,7 @@ describe("KIPNode Sale Contract Testing", () => {
 
   const KIPFundAddress = "0x6E3bbb13330102989Ac110163e4C649d0bB88777";
   const AddressZero = ZeroAddress;
-  const MAX_TIER = 38;
+  const MAX_TIER = 99;
 
   //  Generate Sale Event configs
   const currentTime = Math.floor(Date.now() / 1000);
