@@ -13,7 +13,7 @@ error InvalidProof();
 error SetAddressZero();
 error InvalidConfig(uint256 minTier, uint256 maxTier);
 
-contract WLPurchase is Ownable {
+contract CommunitySales is Ownable {
     using SafeERC20 for IERC20;
 
     // Struct to store Whitelist Sale configuration details
@@ -33,7 +33,7 @@ contract WLPurchase is Ownable {
     uint256 public ticketCounter;
 
     // Address to receive funds
-    address public fundAddress = 0x6E3bbb13330102989Ac110163e4C649d0bB88777;
+    address public fundAddress = 0x420640795953C325F5092B633228A111774ee430;
 
     // Maximum number of tiers for the sale event
     uint256 public constant MAX_TIER = 999;

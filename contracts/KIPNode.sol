@@ -44,7 +44,7 @@ contract KIPNode is ERC721, Ownable {
     uint256 private _nextTokenId;
 
     // KIP Protocol 's Fund Address
-    address public KIPFundAddress = 0x6E3bbb13330102989Ac110163e4C649d0bB88777;
+    address public KIPFundAddress = 0x420640795953C325F5092B633228A111774ee430;
 
     // Set max number of tiers for the sale event
     uint256 public constant MAX_TIER = 99;
