@@ -100,7 +100,7 @@ contract KOL is Ownable {
             config.minPrice > price ||
             tierTotalSale[tier] + amount > tierMaxAmount ||
             tierBuyerMinted[tier][sender] + amount > config.maxPerUser ||
-            codeTotalSale[code] + amount > codeMaxAmount
+            codeTierSale[code][tier] + amount > codeMaxAmount
         ) revert ExceedAllowance();
 
         if (!_validateProof(code, tier, codeMaxAmount, tierMaxAmount, price, merkleProof))
