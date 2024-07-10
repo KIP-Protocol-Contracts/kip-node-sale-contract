@@ -48,6 +48,9 @@ contract KOL is Ownable {
 
     // Mapping to record total minted tickets per buyer per tier
     mapping(uint256 => mapping(address => uint256)) public tierBuyerMinted;
+    
+    // Mapping to record total minted tickets per buyer per tier
+    mapping(bytes32 => mapping(address => uint256)) public codeBuyerMinted;
 
     // Mapping to record total minted tickets per code per tier
     mapping(bytes32 => mapping(uint256 => uint256)) public codeTierSale;
@@ -87,7 +90,7 @@ contract KOL is Ownable {
           - merkleProof: Proof of inclusion in the Merkle tree
           - code: External message
     */
-    function purchase(bytes32 code, uint256 tier, uint256 codeMaxAmount, uint256 tierMaxAmount, uint256 price, uint256 amount, bytes32[] calldata merkleProof) external {
+    function purchase(bytes32 code, uint256 tier, uint256 userMaxAmount, uint256 codeMaxAmount, uint256 tierMaxAmount, uint256 price, uint256 amount, bytes32[] calldata merkleProof) external {
         // Validate passing parameters
         if (tier == 0 || tier > MAX_TIER || amount == 0 || price == 0)
             revert InvalidRequest();
@@ -102,10 +105,11 @@ contract KOL is Ownable {
             config.minPrice > price ||
             tierTotalSale[tier] + amount > tierMaxAmount ||
             tierBuyerMinted[tier][sender] + amount > config.maxPerUser ||
+            codeBuyerMinted[code][sender] + amount > userMaxAmount ||
             codeTierSale[code][tier] + amount > codeMaxAmount
         ) revert ExceedAllowance();
 
-        if (!_validateProof(code, tier, codeMaxAmount, tierMaxAmount, price, merkleProof))
+        if (!_validateProof(code, tier, userMaxAmount, codeMaxAmount, tierMaxAmount, price, merkleProof))
             revert InvalidProof();
 
         _purchase(sender, code, tier, amount, price);
@@ -124,6 +128,7 @@ contract KOL is Ownable {
             tierTotalSale[tier]++;
             codeTotalSale[code]++;
             tierBuyerMinted[tier][buyer]++;
+            codeBuyerMinted[code][buyer]++;
             codeTierSale[code][tier]++;
             tierTicketBuyer[tier][tierTotalSale[tier]] = buyer;
             emit TicketPurchased(buyer, tier, code, tierTotalSale[tier], price);
@@ -194,12 +199,12 @@ contract KOL is Ownable {
           - maxAmount: Maximum number of licenses that can be purchased (set in the Merkle Tree)
           - merkleProof: Array of connecting nodes in the Merkle Tree
     */
-    function _validateProof(bytes32 code, uint256 tier, uint256 codeMaxAmount, uint256 tierMaxAmount, uint256 price, bytes32[] calldata merkleProof) public view returns (bool) {
+    function _validateProof(bytes32 code, uint256 tier, uint256 userMaxAmount, uint256 codeMaxAmount, uint256 tierMaxAmount, uint256 price, bytes32[] calldata merkleProof) public view returns (bool) {
         // Validate passing parameters
         if (tier == 0 || tier > MAX_TIER || tierMaxAmount == 0 || price == 0)
             revert InvalidRequest();
 
-        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(code, tier, codeMaxAmount, tierMaxAmount, price))));
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(code, tier, userMaxAmount, codeMaxAmount, tierMaxAmount, price))));
         return MerkleProof.verify(merkleProof, kolSaleConfigs[code].merkleRoot, leaf);
     }
 }
