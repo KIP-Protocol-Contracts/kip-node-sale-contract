@@ -66,6 +66,8 @@ contract KOL is Ownable {
 
     // Event emitted when a ticket is purchased
     event TicketPurchased(address indexed buyer, uint256 indexed tier, bytes32 indexed code, uint256 ticket_id, uint256 price);
+    // Event emitted when a ticket is purchased
+    event Purchased(address indexed buyer, uint256 indexed tier, bytes32 indexed code, uint256 amount, uint256 unit_price, uint256 total_price);
 
     // Event emitted when counts are updated
     event PurchasedCountUpdated(address indexed buyer, uint256 indexed tier, bytes32 indexed code, uint256 user_count, uint256 code_tier_count, uint256 tier_count, uint256 code_count, uint256 total_count);
@@ -114,6 +116,7 @@ contract KOL is Ownable {
         if (price > 0) {
             uint256 totalPayment = price * amount;
             paymentToken.safeTransferFrom(buyer, fundAddress, totalPayment);
+            emit Purchased(buyer, tier, code, amount, price, totalPayment);
         }
 
         for (uint256 i = 1; i <= amount; i++) {
