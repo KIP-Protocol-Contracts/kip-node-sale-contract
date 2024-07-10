@@ -50,7 +50,7 @@ contract KOL is Ownable {
     mapping(uint256 => mapping(address => uint256)) public tierBuyerMinted;
     
     // Mapping to record total minted tickets per buyer per tier
-    mapping(bytes32 => mapping(address => uint256)) public codeBuyerMinted;
+    mapping(bytes32 => mapping(address => mapping(uint256 => uint256))) public codeBuyerMinted;
 
     // Mapping to record total minted tickets per code per tier
     mapping(bytes32 => mapping(uint256 => uint256)) public codeTierSale;
@@ -105,7 +105,7 @@ contract KOL is Ownable {
             config.minPrice > price ||
             tierTotalSale[tier] + amount > tierMaxAmount ||
             tierBuyerMinted[tier][sender] + amount > config.maxPerUser ||
-            codeBuyerMinted[code][sender] + amount > userMaxAmount ||
+            codeBuyerMinted[code][sender][tier] + amount > userMaxAmount ||
             codeTierSale[code][tier] + amount > codeMaxAmount
         ) revert ExceedAllowance();
 
@@ -128,7 +128,7 @@ contract KOL is Ownable {
             tierTotalSale[tier]++;
             codeTotalSale[code]++;
             tierBuyerMinted[tier][buyer]++;
-            codeBuyerMinted[code][buyer]++;
+            codeBuyerMinted[code][buyer][tier]++;
             codeTierSale[code][tier]++;
             tierTicketBuyer[tier][tierTotalSale[tier]] = buyer;
             emit TicketPurchased(buyer, tier, code, tierTotalSale[tier], price);
