@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: None
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
 error InvalidRequest();
 error SaleEventNotExist(uint256 start, uint256 end);
@@ -17,7 +18,7 @@ error InvalidURI();
 error SetAddressZero();
 error InvalidConfig(uint256 minTier, uint256 maxTier);
 
-contract KIPNode is ERC721, Ownable {
+contract KIPNode is ERC721, ERC721URIStorage, Ownable {
     using SafeERC20 for IERC20;
 
     struct PublicSale {
@@ -110,9 +111,9 @@ contract KIPNode is ERC721, Ownable {
     constructor(
         address initialOwner,
         address paymentToken_
-    ) ERC721("KIP License", "KIPNODE") Ownable(initialOwner) {
+    ) ERC721("KIP Checker Node", "KIP") Ownable(initialOwner) {
         paymentToken = IERC20(paymentToken_);
-        baseURI = "https://node-nft.kip.pro/";
+        // baseURI = "https://node-nft.kip.pro/";
     }
 
     /** 
@@ -414,5 +415,23 @@ contract KIPNode is ERC721, Ownable {
 
     function _baseURI() internal view override returns (string memory) {
         return baseURI;
+    }
+    
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        return string(abi.encodePacked(super.tokenURI(tokenId), ".json"));
+    }
+    
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
     }
 }
